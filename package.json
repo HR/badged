@@ -1,0 +1,61 @@
+{
+  "name": "badged",
+  "version": "1.0.0",
+  "description": "GitHub Release downloads badges",
+  "main": "index.js",
+  "engines": {
+    "node": "7.10.0"
+  },
+  "scripts": {
+    "test": "make test",
+    "flow": "flow",
+    "dev": "./node_modules/.bin/nodemon app.js",
+    "preinstall": "if [[ \"$NODE_ENV\" != \"development\" ]]; then npm install pm2 -g  && pm2 install pm2-logrotate; fi",
+    "start": "pm2 start --attach process.yml && pm2 logs all"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/HR/badged.git"
+  },
+  "keywords": [
+    "GitHub",
+    "Releases",
+    "badges",
+    "shields",
+    "download",
+    "count",
+    "downloads"
+  ],
+  "author": "Habib Rehman",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/HR/badged/issues"
+  },
+  "homepage": "https://github.com/HR/badged#readme",
+  "dependencies": {
+    "co": "^4.6.0",
+    "fs-extra": "^3.0.1",
+    "koa": "^2.2.0",
+    "koa-compress": "^2.0.0",
+    "koa-logger": "^3.0.0",
+    "koa-response-time": "^2.0.0",
+    "koa-router": "^7.2.0",
+    "koa-static": "^3.0.0",
+    "lodash": "^4.17.4",
+    "mongodb": "^2.2.27",
+    "normalize-url": "^1.9.1",
+    "numeral": "^2.0.6",
+    "parse-link-header": "^1.0.0",
+    "request": "^2.81.0",
+    "request-promise-native": "^1.0.4",
+    "showdown": "^1.6.4",
+    "winston": "^2.3.1",
+    "winston-daily-rotate-file": "^1.4.6"
+  },
+  "devDependencies": {
+    "gulp": "^3.9.1",
+    "gulp-env": "^0.4.0",
+    "gulp-nodemon": "^2.2.1",
+    "nodemon": "^1.11.0"
+  }
+}

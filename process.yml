@@ -1,0 +1,7 @@
+apps:
+  - script   : app.js
+    name: badger
+    instances: 4
+    exec_mode: cluster
+    error_file: 'logs/app-out.log'
+    out_file: 'logs/app-err.log'
