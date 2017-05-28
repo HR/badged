@@ -1,7 +1,8 @@
-// @flow
+'use strict'
 /**
  * GET Badges
- */
+ * Controllers for badge routes
+ ******************************/
 
 // Deps
 const req = require('request-promise-native'),
@@ -21,7 +22,7 @@ const GH_API_BASE_URI = 'https://api.github.com/repos/%s/%s/releases',
   // Params
   RELEASE_ID_PARAM = 'id',
   RELEASE_TAG_PARAM = 'tag',
-  SHIELDS_URI_PARAM = 'img',
+  SHIELDS_URI_PARAM = 'badge',
   ALLOWED_PARAMS = [RELEASE_ID_PARAM, RELEASE_TAG_PARAM, SHIELDS_URI_PARAM],
   DEFAULT_SHIELDS_URI = 'https://img.shields.io/badge/downloads-%s-green.svg',
   DEFAULT_PLACEHOLDER = 'X',
@@ -107,7 +108,7 @@ function isReqValid (reqUrlQuery) {
 // Gets the badge from the passed shields URI
 function getBadge (shieldsReqURI) {
   return new Promise(function (resolve, reject) {
-    req(encodeURI(shieldsReqURI))
+    req(shieldsReqURI)
       .then((svg) => {
         resolve(svg)
       })
@@ -301,7 +302,7 @@ exports.release = async function(ctx, next) {
     ctx.body = await getBadge(shieldsReqURI)
   } catch (e) {
     logger.error(e)
-    let shieldsReqURI = sub(shieldsURI, DEFAULT_PLACEHOLDER)
+    let shieldsReqURI = sub(DEFAULT_SHIELDS_URI, DEFAULT_PLACEHOLDER)
     ctx.body = await getBadge(shieldsReqURI)
   }
 }
@@ -321,7 +322,7 @@ exports.total = async function(ctx, next) {
     ctx.body = await getBadge(shieldsReqURI)
   } catch (e) {
     logger.error(e)
-    let shieldsReqURI = sub(shieldsURI, DEFAULT_PLACEHOLDER)
+    let shieldsReqURI = sub(DEFAULT_SHIELDS_URI, DEFAULT_PLACEHOLDER)
     ctx.body = await getBadge(shieldsReqURI)
   }
 }

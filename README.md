@@ -1,32 +1,31 @@
-
-
 <h1 align="center">
-  <a href="https://github.com/HR/downloads-badge">
-    GitHub Release Downloads Badges
-  </a>
+  <br>
+  <a href="https://github.com/HR/Badged"><img src="https://raw.githubusercontent.com/HR/badged/master/public/badged_logo.svg" alt="Badged" width="180" style= "margin-bottom: 1rem"></a>
+  <br>
+  Badged
+  <br>
+  <br>
 </h1>
 
 
-<h4 align="center">Customizable download count badges</h4>
+<h4 align="center">Customizable GitHub Release download count badges</h4>
 
 <p align="center">
   <a href="https://git.io/Crypter">
-    <img src="/HR/Crypter/total?img=https://img.shields.io/badge/Crypter%20⬇️-%s-orange.svg"
+    <img src="https://badged.space/HR/Crypter?badge=https://img.shields.io/badge/Crypter%20⬇️-%s-orange.svg"
       alt="Downloads">
   </a>
-  <img src="/atom/atom?img=https://img.shields.io/badge/Downloads-%s-green.svg"
+  <img src="https://badged.space/atom/atom?badge=https://img.shields.io/badge/Downloads-%s-green.svg"
     alt="Downloads">
-  <img src="/atom/atom/total?img=https://img.shields.io/badge/Atom%20Σ%20⬇️-%s-red.svg"
-    alt="Downloads">
-  <img src="/electron/electron?img=https://img.shields.io/badge/Electron%20⬇️-%s-blue.svg"
+  <img src="https://badged.space/electron/electron?badge=https://img.shields.io/badge/Electron%20⬇️-%s-blue.svg"
     alt="Downloads">
 </p>
 <br>
 An API that provides you with a customizable download count badges for your
 GitHub Releases. Allows you to keep track of your release downloads and let
 others know how popular your releases are. Use virtually any badge service (e.g.
-[Shields.io](http://shields.io/)) you like!
-Uses GitHub API :octocat:, Koa ⚡ and ES17 ✨. Available for free.
+shields.io) you like!
+Uses GitHub API :octocat:, Mongodb 🌱, Koa ⚡ and ES17 ✨. Available for free.
 
 ## Features
 - Get a shiny downloads badge to add to your projects' README.md
@@ -38,10 +37,17 @@ Uses GitHub API :octocat:, Koa ⚡ and ES17 ✨. Available for free.
 - Use any badge service of your choice (with any customization offered)
 
 ## Usage
+### Get downloads badge for latest release
+```
+https://badged.space/:username/:repo
+```
+Where `username` and `repo` are the GitHub username and repository respectively.
+By default, it sends the shields.io download badge (i.e.
+`https://img.shields.io/badge/downloads-${DOWNLOAD_COUNT}-green.svg`). However
+you can specify a custom badge URI.
 
-```
-https://badged.space/badge/:username/:repo?tag=v2&url
-```
+More coming soon...
+
 ## License
 The MIT License (MIT)
 

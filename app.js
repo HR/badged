@@ -1,10 +1,11 @@
-// @flow
+'use strict'
 /**
- * Module dependencies.
- */
+ * app.js
+ * Entry point for the Badged App
+ ******************************/
 
 // Init logger to override console
-const logger = require('./lib/logger')
+const logger = require('./script/logger')
 
 const controllersPath = `${__dirname}/controllers`,
   badge = require(`${controllersPath}/badge`),
@@ -46,7 +47,7 @@ app.use(async (ctx, next) => {
 if ('test' != ENV) app.use(klogger())
 
 // Mongodb logging
-// require('mongodb').Logger.setLevel('info')
+require('mongodb').Logger.setLevel('info')
 
 // serve static files
 app.use(serve(`${__dirname}/public`))
