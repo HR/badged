@@ -21,7 +21,7 @@ const controllersPath = `${__dirname}/controllers`,
   MongoClient = require('mongodb').MongoClient,
   ENV = process.env.NODE_ENV || 'development',
   PORT = process.env.PORT || '4000',
-  MONGO_URI = process.env.MONGO_URI
+  MONGODB_URI = process.env.MONGODB_URI
 
 // Init
 const app = new koa()
@@ -80,7 +80,7 @@ app
   .use(router.routes())
   .use(router.allowedMethods())
 
-MongoClient.connect(MONGO_URI)
+MongoClient.connect(MONGODB_URI)
   .then((db) => {
     _db = db
     logger.info(`Connected to db!`)
