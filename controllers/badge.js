@@ -18,27 +18,44 @@ const GH_API_BASE_URI = 'https://api.github.com/repos/%s/%s/releases',
   GH_API_OAUTH_TOKEN = process.env.GH_API_OAUTH_TOKEN || '',
   GH_API_PAGE_SIZE = 100,
   GH_API_TAGS_RPATH = 'tags',
-  GH_API_DEFAULT_RPATH = 'latest',
-  // Params
-  RELEASE_ID_PARAM = 'id',
+  GH_API_DEFAULT_RPATH = 'latest'
+
+// Params
+const RELEASE_ID_PARAM = 'id',
   RELEASE_TAG_PARAM = 'tag',
   SHIELDS_URI_PARAM = 'badge',
-  ALLOWED_PARAMS = [RELEASE_ID_PARAM, RELEASE_TAG_PARAM, SHIELDS_URI_PARAM],
-  DEFAULT_SHIELDS_URI = 'https://img.shields.io/badge/downloads-%s-green.svg',
+  ALLOWED_PARAMS = [RELEASE_ID_PARAM, RELEASE_TAG_PARAM, SHIELDS_URI_PARAM]
+
+// Defaults
+const DEFAULT_SHIELDS_URI = 'https://img.shields.io/badge/downloads-%s-green.svg',
   DEFAULT_PLACEHOLDER = 'X',
-  SUB_REGEX = /%s/g,
-  RES_MIME_TYPE = 'image/svg+xml',
-  HTTP_NOT_MODIFIED_CODE = 304,
+  DEFAULT_REQ_UA = 'Badge Getter',
+  DEFAULT_MIME_TYPE = 'image/svg+xml',
+  SUB_REGEX = /%s/g
+
+// HTTP stuff
+const HTTP_NOT_MODIFIED_CODE = 304,
   HTTP_FORBIDDEN_CODE = 403,
   HTTP_OK_REGEX = /^2/
 
+function buildBadgeOpts (URL) {
+  return {
+    uri: URL,
+    headers: {
+      'User-Agent': DEFAULT_REQ_UA
+    },
+    resolveWithFullResponse: true,
+    json: true
+  }
+}
+
 // Build request options
-function buildOpts (URL, opts) {
+function buildGhApiOpts (URL, opts) {
   return _.merge({
     uri: URL,
     headers: {
       // Required for GitHub API
-      'User-Agent': 'Badge Getter',
+      'User-Agent': DEFAULT_REQ_UA,
       'Accept': 'application/vnd.github.v3.full+json',
       'Authorization': `token ${GH_API_OAUTH_TOKEN}`
     },
@@ -108,9 +125,9 @@ function isReqValid (reqUrlQuery) {
 // Gets the badge from the passed shields URI
 function getBadge (shieldsReqURI) {
   return new Promise(function (resolve, reject) {
-    req(shieldsReqURI)
-      .then((svg) => {
-        resolve(svg)
+    req(buildBadgeOpts(shieldsReqURI))
+      .then((res) => {
+        resolve({type: res.headers['content-type'], body: res.body})
       })
       .catch((err) => {
         reject(err)
@@ -140,7 +157,7 @@ function getDownloadCount (resBody) {
 // Gets
 function getReleaseData (url, extraOpts) {
   return new Promise(function (resolve, reject) {
-    req(buildOpts(url, extraOpts))
+    req(buildGhApiOpts(url, extraOpts))
       .then((res) => {
         return resolve({headers: res.headers, count: getDownloadCount(res.body)})
       })
@@ -234,7 +251,7 @@ async function getBadgeData (ghURI, ctx) {
     }
 
     // Fetch release data
-    let releaseData = await req(buildOpts(ghURI, extraOpts))
+    let releaseData = await req(buildGhApiOpts(ghURI, extraOpts))
     let statusCode = releaseData.statusCode
 
     logger.info(`Got response ${releaseData.headers.status}.`)
@@ -297,13 +314,16 @@ exports.release = async function(ctx, next) {
   try {
     let badgeDownloads = await getBadgeData(ghURI, ctx)
     let shieldsReqURI = sub(shieldsURI, numeral(badgeDownloads).format())
+    let badge = await getBadge(shieldsReqURI)
     // Response
-    // ctx.type = RES_MIME_TYPE
-    ctx.body = await getBadge(shieldsReqURI)
+    ctx.type = badge.type
+    ctx.body = badge.body
   } catch (e) {
     logger.error(e)
     let shieldsReqURI = sub(DEFAULT_SHIELDS_URI, DEFAULT_PLACEHOLDER)
-    ctx.body = await getBadge(shieldsReqURI)
+    let badge = await getBadge(shieldsReqURI)
+    ctx.type = badge.type
+    ctx.body = badge.body
   }
 }
 
@@ -332,7 +352,7 @@ exports.total = async function(ctx, next) {
  */
 exports.status = async function(ctx, next) {
   try {
-    res = await req(buildOpts(GH_API_STATUS_URI))
+    res = await req(buildGhApiOpts(GH_API_STATUS_URI))
     let resBody = 'GH API Status<br>'
     for (var stat in res.body.rate) {
       if (stat === 'reset') resBody += `${stat}: ${new Date(res.body.rate[stat] * 1000).toLocaleString()}<br>`
