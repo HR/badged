@@ -12,12 +12,12 @@
 
 <p align="center">
   <a href="https://git.io/Crypter">
-    <img src="https://badged.space/HR/Crypter?badge=https://img.shields.io/badge/Crypter%20⬇️-%s-orange.svg"
+    <img src="https://badged.space/HR/Crypter?badge=https://img.shields.io/badge/Crypter%20⬇-%s-orange.svg"
       alt="Downloads">
   </a>
   <img src="https://badged.space/atom/atom?badge=https://img.shields.io/badge/Downloads-%s-green.svg"
     alt="Downloads">
-  <img src="https://badged.space/electron/electron?badge=https://img.shields.io/badge/Electron%20⬇️-%s-blue.svg"
+  <img src="https://badged.space/electron/electron?badge=https://img.shields.io/badge/Electron%20⬇-%s-blue.svg"
     alt="Downloads">
 </p>
 <br>
