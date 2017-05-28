@@ -27,7 +27,7 @@
 <br>
 A service that provides you with a customizable download count badges for your
 GitHub Releases like
-[![downloads](https://badged.space/HR/Crypter?badge=https://img.shields.io/badge/downloads-%s-orange.svg)](https://github.com/HR/Crypter).
+![downloads](https://badged.space/HR/Crypter?badge=https://img.shields.io/badge/downloads-%s-orange.svg).
 Allows you to keep track of your release downloads and let others know how
 popular your releases are. Use virtually any badge service (e.g. shields.io) you
 like! Uses GitHub API :octocat:, Mongodb 🌱, Koa ⚡ and ES17 ✨. Available for
