@@ -11,21 +11,27 @@
 <h4 align="center">Customizable GitHub Release download count badges</h4>
 
 <p align="center">
-  <a href="https://git.io/Crypter">
-    <img src="https://badged.space/HR/Crypter?badge=https://img.shields.io/badge/Crypter%20⬇-%s-orange.svg"
+  <a href="https://github.com/HR/Crypter">
+    <img src="https://badged.space/HR/Crypter?badge=https://img.shields.io/badge/Crypter%20downloads-%s-orange.svg"
       alt="Downloads">
   </a>
-  <img src="https://badged.space/atom/atom?badge=https://img.shields.io/badge/Downloads-%s-green.svg"
-    alt="Downloads">
-  <img src="https://badged.space/electron/electron?badge=https://img.shields.io/badge/Electron%20⬇-%s-blue.svg"
-    alt="Downloads">
+  <a href="https://github.com/atom/atom">  
+    <img src="https://badged.space/atom/atom?badge=https://img.shields.io/badge/Atom%20downloads-%s-green.svg"
+      alt="Downloads">
+  </a>
+  <a href="https://github.com/electron/electron">  
+    <img src="https://badged.space/electron/electron?badge=https://img.shields.io/badge/Electron%20downloads-%s-blue.svg"
+      alt="Downloads">
+  </a>
 </p>
 <br>
-An API that provides you with a customizable download count badges for your
-GitHub Releases. Allows you to keep track of your release downloads and let
-others know how popular your releases are. Use virtually any badge service (e.g.
-shields.io) you like!
-Uses GitHub API :octocat:, Mongodb 🌱, Koa ⚡ and ES17 ✨. Available for free.
+A service that provides you with a customizable download count badges for your
+GitHub Releases like
+[![downloads](https://badged.space/HR/Crypter?badge=https://img.shields.io/badge/downloads-%s-orange.svg)](https://github.com/HR/Crypter).
+Allows you to keep track of your release downloads and let others know how
+popular your releases are. Use virtually any badge service (e.g. shields.io) you
+like! Uses GitHub API :octocat:, Mongodb 🌱, Koa ⚡ and ES17 ✨. Available for
+free.
 
 ## Features
 - Get a shiny downloads badge to add to your projects' README.md

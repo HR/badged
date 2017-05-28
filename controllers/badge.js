@@ -330,6 +330,7 @@ exports.release = async function(ctx, next) {
 /**
  * GET a badge of all-time total download count (all releases)
  */
+// TODO: Implement this
 exports.total = async function(ctx, next) {
   const ghURI = buildGhURI(ctx.params.owner, ctx.params.repo),
     shieldsURI = ctx.query[SHIELDS_URI_PARAM] || DEFAULT_SHIELDS_URI
@@ -352,7 +353,7 @@ exports.total = async function(ctx, next) {
  */
 exports.status = async function(ctx, next) {
   try {
-    res = await req(buildGhApiOpts(GH_API_STATUS_URI))
+    let res = await req(buildGhApiOpts(GH_API_STATUS_URI))
     let resBody = 'GH API Status<br>'
     for (var stat in res.body.rate) {
       if (stat === 'reset') resBody += `${stat}: ${new Date(res.body.rate[stat] * 1000).toLocaleString()}<br>`
