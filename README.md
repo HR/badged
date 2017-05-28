@@ -28,12 +28,10 @@
 
 
 A service that provides you with a customizable download count badges for your
-GitHub Releases like
-[![downloads](https://badged.space/HR/Crypter?badge=https://img.shields.io/badge/downloads-%s-orange.svg)](https://github.com/HR/Crypter).
-Allows you to keep track of your release downloads and let others know how
-popular your releases are. Use virtually any badge service (e.g. shields.io) you
-like! Uses GitHub API :octocat:, Mongodb 🌱, Koa ⚡ and ES17 ✨. Available for
-free.
+GitHub Releases. Allows you to keep track of your release downloads and let
+others know how popular your releases are. Use virtually any badge service (e.g.
+shields.io) you like! Uses GitHub API :octocat:, Mongodb 🌱, Koa ⚡ and ES17 ✨.
+Available for free.
 
 ## Features
 - Get a shiny downloads badge to add to your projects' README.md
@@ -53,6 +51,12 @@ Where `username` and `repo` are the GitHub username and repository respectively.
 By default, it sends the shields.io download badge (i.e.
 `https://img.shields.io/badge/downloads-${DOWNLOAD_COUNT}-green.svg`). However
 you can specify a custom badge URI.
+*For example*, the following markdown
+`![downloads](https://badged.space/HR/Crypter)`
+yields a shiny badge for the latest release of
+[Crypter](https://github.com/HR/Crypter)
+
+[![downloads](https://badged.space/HR/Crypter)](https://github.com/HR/Crypter)
 
 More coming soon...
 
