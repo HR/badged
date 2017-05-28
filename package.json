@@ -8,9 +8,8 @@
   },
   "scripts": {
     "test": "make test",
-    "flow": "flow",
     "dev": "./node_modules/.bin/nodemon app.js",
-    "preinstall": "if [[ \"$NODE_ENV\" != \"development\" ]]; then npm install pm2 -g  && pm2 install pm2-logrotate; fi",
+    "preinstall": "if [ \"$NODE_ENV\" != \"development\" ]; then npm install pm2 -g  && pm2 install pm2-logrotate; fi",
     "start": "pm2 start --attach process.yml && pm2 logs all"
   },
   "repository": {
