@@ -1,6 +1,6 @@
 <h1 align="center">
   <br>
-  <a href="https://github.com/HR/Badged"><img src="https://raw.githubusercontent.com/HR/badged/master/public/badged_logo.svg" alt="Badged" width="180" style= "margin-bottom: 1rem"></a>
+  <a href="https://github.com/HR/Badged"><img src="https://raw.githubusercontent.com/HR/badged/master/public/badged_logo.png" alt="Badged" width="180" style= "margin-bottom: 1rem"></a>
   <br>
   Badged
   <br>
