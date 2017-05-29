@@ -36,6 +36,8 @@ const DEFAULT_SHIELDS_URI = 'https://img.shields.io/badge/downloads-%s-green.svg
 // HTTP stuff
 const HTTP_NOT_MODIFIED_CODE = 304,
   HTTP_FORBIDDEN_CODE = 403,
+  HTTP_OK_CODE = 200,
+  HTTP_PARTIAL_CONTENT_CODE = 206,
   HTTP_OK_REGEX = /^2/
 
 function buildBadgeOpts (URI) {
@@ -312,12 +314,14 @@ exports.release = async function(ctx, next) {
     let shieldsReqURI = sub(shieldsURI, numeral(badgeDownloads).format())
     let badge = await getBadge(shieldsReqURI)
     // Response
+    ctx.statusCode = HTTP_OK_CODE
     ctx.type = badge.type
     ctx.body = badge.body
   } catch (e) {
     logger.error(e)
     let shieldsReqURI = sub(DEFAULT_SHIELDS_URI, DEFAULT_PLACEHOLDER)
     let badge = await getBadge(shieldsReqURI)
+    ctx.statusCode = HTTP_PARTIAL_CONTENT_CODE
     ctx.type = badge.type
     ctx.body = badge.body
   }
@@ -337,12 +341,14 @@ exports.releaseById = async function(ctx, next) {
     let shieldsReqURI = sub(shieldsURI, numeral(badgeDownloads).format())
     let badge = await getBadge(shieldsReqURI)
     // Response
+    ctx.statusCode = HTTP_OK_CODE
     ctx.type = badge.type
     ctx.body = badge.body
   } catch (e) {
     logger.error(e)
     let shieldsReqURI = sub(DEFAULT_SHIELDS_URI, DEFAULT_PLACEHOLDER)
     let badge = await getBadge(shieldsReqURI)
+    ctx.statusCode = HTTP_PARTIAL_CONTENT_CODE
     ctx.type = badge.type
     ctx.body = badge.body
   }
@@ -362,12 +368,14 @@ exports.releaseByTag = async function(ctx, next) {
     let shieldsReqURI = sub(shieldsURI, numeral(badgeDownloads).format())
     let badge = await getBadge(shieldsReqURI)
     // Response
+    ctx.statusCode = HTTP_OK_CODE
     ctx.type = badge.type
     ctx.body = badge.body
   } catch (e) {
     logger.error(e)
     let shieldsReqURI = sub(DEFAULT_SHIELDS_URI, DEFAULT_PLACEHOLDER)
     let badge = await getBadge(shieldsReqURI)
+    ctx.statusCode = HTTP_PARTIAL_CONTENT_CODE
     ctx.type = badge.type
     ctx.body = badge.body
   }
@@ -386,12 +394,14 @@ exports.total = async function(ctx, next) {
   //   let shieldsReqURI = sub(shieldsURI, numeral(badgeDownloads).format())
   //   let badge = await getBadge(shieldsReqURI)
   //   // Response
+  //   ctx.statusCode = HTTP_OK_CODE
   //   ctx.type = badge.type
   //   ctx.body = badge.body
   // } catch (e) {
   //   logger.error(e)
   //   let shieldsReqURI = sub(DEFAULT_SHIELDS_URI, DEFAULT_PLACEHOLDER)
   //   let badge = await getBadge(shieldsReqURI)
+  //   ctx.statusCode = HTTP_PARTIAL_CONTENT_CODE
   //   ctx.type = badge.type
   //   ctx.body = badge.body
   // }
