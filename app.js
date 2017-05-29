@@ -32,14 +32,24 @@ var _db
  * Environment.
  */
 
-// Protect against HTTP Parameter Pollution attacks
+ // Normalize
+ function normalize(path) {
+   return path.toString().toLowerCase()
+ }
+
+// Middleware to protect against HTTP Parameter Pollution attacks
 app.use(async (ctx, next) => {
   for (var param in ctx.query) {
     if (_.has(ctx.query, param)) {
       ctx.query[param] = _.isArray(ctx.query[param]) ? ctx.query[param][0] : ctx.query[param]
     }
   }
-  ctx.url = encodeURI(ctx.url)
+  await next()
+})
+
+// Middleware for normalizing request path
+app.use(async (ctx, next) => {
+  ctx.path = normalize(ctx.path)
   await next()
 })
 
@@ -68,12 +78,13 @@ app.use(async (ctx, next) => {
  * Routes
  */
 router.get('/', home.index)
-router.get('/debug/:idp', badge.debug)
+router.get('/debug', badge.debug)
+router.get('/d/debug', badge.debug)
 router.get('/status', badge.status)
 router.get('/:owner/:repo', badge.release)
+router.get('/:owner/:repo/total', badge.total)
 router.get('/:owner/:repo/:id', badge.releaseById)
 router.get('/:owner/:repo/tags/:tag', badge.releaseByTag)
-router.get('/:owner/:repo/total', badge.total)
 
 // catch all
 router.get('/*', home.index)
