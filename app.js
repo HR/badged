@@ -68,9 +68,11 @@ app.use(async (ctx, next) => {
  * Routes
  */
 router.get('/', home.index)
-router.get('/debug', badge.debug)
+router.get('/debug/:idp', badge.debug)
 router.get('/status', badge.status)
 router.get('/:owner/:repo', badge.release)
+router.get('/:owner/:repo/:id', badge.releaseById)
+router.get('/:owner/:repo/tags/:tag', badge.releaseByTag)
 router.get('/:owner/:repo/total', badge.total)
 
 // catch all

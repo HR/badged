@@ -13,6 +13,7 @@ const req = require('request-promise-native'),
   querystring = require('querystring'),
   normalizeUrl = require('normalize-url')
 
+// GitHub API Constants
 const GH_API_BASE_URI = 'https://api.github.com/repos/%s/%s/releases',
   GH_API_STATUS_URI = 'https://api.github.com/rate_limit',
   GH_API_OAUTH_TOKEN = process.env.GH_API_OAUTH_TOKEN || '',
@@ -21,16 +22,15 @@ const GH_API_BASE_URI = 'https://api.github.com/repos/%s/%s/releases',
   GH_API_DEFAULT_RPATH = 'latest'
 
 // Params
-const RELEASE_ID_PARAM = 'id',
-  RELEASE_TAG_PARAM = 'tag',
-  SHIELDS_URI_PARAM = 'badge',
-  ALLOWED_PARAMS = [RELEASE_ID_PARAM, RELEASE_TAG_PARAM, SHIELDS_URI_PARAM]
+const SHIELDS_URI_PARAM = 'badge',
+  ALLOWED_PARAMS = [SHIELDS_URI_PARAM]
 
 // Defaults
 const DEFAULT_SHIELDS_URI = 'https://img.shields.io/badge/downloads-%s-green.svg',
   DEFAULT_PLACEHOLDER = 'X',
   DEFAULT_REQ_UA = 'Badge Getter',
   DEFAULT_MIME_TYPE = 'image/svg+xml',
+  DEFAULT_DB_COLLECTION = 'downloads',
   SUB_REGEX = /%s/g
 
 // HTTP stuff
@@ -38,9 +38,9 @@ const HTTP_NOT_MODIFIED_CODE = 304,
   HTTP_FORBIDDEN_CODE = 403,
   HTTP_OK_REGEX = /^2/
 
-function buildBadgeOpts (URL) {
+function buildBadgeOpts (URI) {
   return {
-    uri: URL,
+    uri: URI,
     headers: {
       'User-Agent': DEFAULT_REQ_UA
     },
@@ -50,9 +50,9 @@ function buildBadgeOpts (URL) {
 }
 
 // Build request options
-function buildGhApiOpts (URL, opts) {
+function buildGhApiOpts (URI, opts) {
   return _.merge({
-    uri: URL,
+    uri: URI,
     headers: {
       // Required for GitHub API
       'User-Agent': DEFAULT_REQ_UA,
@@ -74,37 +74,28 @@ function sub (str, ...subs) {
 
 /**
  * Mongodb 'downloads' Collection Schema
- * Generates a mongodb 'download' docuemnt
+ * Generates a mongodb 'download' document
  */
-function Schema (url, ghURI, ghETAG, ghLastMod, count, lastUpdated, requests) {
+function Schema (url, ghURI, ghId, ghTag, ...fields) {
   let schema = {
-    ghETAG: ghETAG,
-    ghLastMod: ghLastMod,
-    count: count,
-    lastUpdated: lastUpdated,
-    requests: requests
+    ghETAG: fields[0],
+    ghLastMod: fields[1],
+    count: fields[2],
+    lastUpdated: fields[3],
+    requests: fields[4]
   }
   if (url) schema.url = url
   if (ghURI) schema.ghURI = ghURI
+  if (ghId) schema.ghId = ghId
+  if (ghTag) schema.ghTag = ghTag
   return schema
 }
 
-// Builds the GitHub API Request URI from query params
-function buildGhURI (owner, repo, query) {
+// Builds the GitHub API Request URI
+function buildGhURI (owner, repo, ...paths) {
   const apiReqBase = sub(GH_API_BASE_URI, owner, repo)
-  if (!query) return apiReqBase
-  switch (true) {
-    case RELEASE_ID_PARAM in query:
-      var apiReqURI = `${apiReqBase}/${query[RELEASE_ID_PARAM]}`
-      break
-    case RELEASE_TAG_PARAM in query:
-      var apiReqURI = `${apiReqBase}/${GH_API_TAGS_RPATH}/${query[RELEASE_TAG_PARAM]}`
-      break
-
-    default:
-      var apiReqURI = `${apiReqBase}/${GH_API_DEFAULT_RPATH}`
-  }
-  return apiReqURI
+  if (_.isEmpty(paths)) return apiReqBase
+  return `${apiReqBase}/${paths.join('/')}`
 }
 
 // Build querystring (for pagination)
@@ -120,19 +111,6 @@ function buildPageQS (page) {
 function isReqValid (reqUrlQuery) {
   // Check if only allowed params passed
   return _.isEmpty(_.omit(reqUrlQuery, ALLOWED_PARAMS))
-}
-
-// Gets the badge from the passed shields URI
-function getBadge (shieldsReqURI) {
-  return new Promise(function (resolve, reject) {
-    req(buildBadgeOpts(shieldsReqURI))
-      .then((res) => {
-        resolve({type: res.headers['content-type'], body: res.body})
-      })
-      .catch((err) => {
-        reject(err)
-      })
-  })
 }
 
 // Calculates the total download count for a single release
@@ -154,17 +132,21 @@ function getDownloadCount (resBody) {
   }
 }
 
-// Gets
+// Gets the badge from the passed shields URI
+function getBadge (shieldsReqURI) {
+  return req(buildBadgeOpts(shieldsReqURI))
+    .then((res) => {
+      return {type: res.headers['content-type'], body: res.body}
+    })
+}
+
+// Gets the release data with count
 function getReleaseData (url, extraOpts) {
-  return new Promise(function (resolve, reject) {
-    req(buildGhApiOpts(url, extraOpts))
-      .then((res) => {
-        return resolve({headers: res.headers, count: getDownloadCount(res.body)})
-      })
-      .catch((err) => {
-        reject(err)
-      })
-  })
+  return req(buildGhApiOpts(url, extraOpts))
+    .then((res) => {
+      res.count = getDownloadCount(res.body)
+      return res
+    })
 }
 
 // Log the outcome of a db operation
@@ -192,6 +174,18 @@ function resolveReq (reqArr, origin) {
   return reqArr
 }
 
+async function fetchParallel (urls) {
+  // fetch all the URLs in parallel
+  const pagePromises = urls.map(async url => {
+    return await req(buildGhApiOpts(url))
+  })
+
+  // log them in sequence
+  for (const pagePromise of pagePromises) {
+    console.log(await pagePromise)
+  }
+}
+
 async function getBadgeTotalData (ghURI, ctx) {
 }
 /**
@@ -202,15 +196,14 @@ async function getBadgeTotalData (ghURI, ctx) {
  * @return {Number}       Download count
  */
 // TODO: Modularise
-async function getBadgeData (ghURI, ctx) {
-  const url = normalizeUrl(ctx.url, { removeQueryParameters: [SHIELDS_URI_PARAM]})
-  const downloads = ctx.db.collection('downloads')
-  const cache = await downloads.find({ghURI: ghURI}).toArray()
+async function getBadgeData (ghURI, downloads, findFilter, url, origin) {
+  url = normalizeUrl(url, { removeQueryParameters: [SHIELDS_URI_PARAM]})
+  const cachedReleaseData = await downloads.findOne(findFilter)
 
-  logger.info(JSON.stringify(cache), ' isEmpty: ', _.isEmpty(cache))
+  logger.debug(`Cached data: ${JSON.stringify(cachedReleaseData)}`)
   logger.info(`Normalized Request URL ${url}`)
 
-  if (_.isEmpty(cache)) {
+  if (_.isEmpty(cachedReleaseData)) {
     // Not in cache so fetch
     logger.info(`${url} NOT IN cache. Fetching...`)
 
@@ -221,12 +214,14 @@ async function getBadgeData (ghURI, ctx) {
     let outcome = await downloads.insertOne(Schema(
       url,
       ghURI,
+      releaseData.body.id,
+      releaseData.body.tag_name,
       releaseData.headers.etag,
       releaseData.headers['last-modified'],
       releaseData.count,
       releaseData.headers.date,
       [{
-        origin: ctx.origin,
+        origin: origin,
         count: 1
       }]
     ))
@@ -238,8 +233,7 @@ async function getBadgeData (ghURI, ctx) {
     // In cache
     logger.info(`${url} IN cache. Checking if changed`)
 
-    let cachedReleaseData = cache[0]
-    let requests = resolveReq(cachedReleaseData.requests, ctx.origin)
+    let requests = resolveReq(cachedReleaseData.requests, origin)
     let updateOpts = {
       returnOriginal: false
     }
@@ -252,7 +246,7 @@ async function getBadgeData (ghURI, ctx) {
 
     // Fetch release data
     let releaseData = await req(buildGhApiOpts(ghURI, extraOpts))
-    let statusCode = releaseData.statusCode
+    const statusCode = releaseData.statusCode
 
     logger.info(`Got response ${releaseData.headers.status}.`)
     // Check if outdated
@@ -261,14 +255,14 @@ async function getBadgeData (ghURI, ctx) {
         // Has not been modified
         logger.info(`${url} has NOT changed. Serving from cache...`)
         // Update cache requests
-        var outcome = await downloads.updateOne({ghURI: ghURI}, {$set: {requests: requests}}, updateOpts)
+        var outcome = await downloads.updateOne(findFilter, {$set: {requests: requests}}, updateOpts)
         logOutcome(outcome.modifiedCount, 1, 'update requests', url)
         // Serve from cache
         return cachedReleaseData.count
 
       case statusCode === HTTP_FORBIDDEN_CODE:
         // GitHub API Limit reached
-        var outcome = await downloads.updateOne({ghURI: ghURI}, {$set: {requests: requests}}, updateOpts)
+        var outcome = await downloads.updateOne(findFilter, {$set: {requests: requests}}, updateOpts)
         logOutcome(outcome.modifiedCount, 1, 'update requests', url)
         // Serve from cache
         return cachedReleaseData.count
@@ -281,6 +275,8 @@ async function getBadgeData (ghURI, ctx) {
         let updatedDownload = Schema(
           null,
           null,
+          releaseData.body.id,
+          releaseData.body.tag_name,
           releaseData.headers.etag,
           releaseData.headers['last-modified'],
           releaseData.count,
@@ -289,13 +285,13 @@ async function getBadgeData (ghURI, ctx) {
         )
 
         // Update cache
-        var outcome = await downloads.updateOne({ghURI: ghURI}, {$set: updatedDownload}, updateOpts)
+        var outcome = await downloads.updateOne(findFilter, {$set: updatedDownload}, updateOpts)
         logOutcome(outcome.modifiedCount, 1, 'update download', url)
         // Serve from freshly fetched data
         return releaseData.count
 
       default:
-        // Unknown error occurred
+        // Reject async fn with error occurred
         throw new Error(`Got response ${releaseData.headers.status} from GH API at ${releaseData.headers['x-ratelimit-remaining']} used limit`)
     }
   }
@@ -307,12 +303,62 @@ async function getBadgeData (ghURI, ctx) {
  */
 exports.release = async function(ctx, next) {
   const shieldsURI = ctx.query[SHIELDS_URI_PARAM] || DEFAULT_SHIELDS_URI,
-    ghURI = buildGhURI(ctx.params.owner, ctx.params.repo, ctx.query)
+    ghURI = buildGhURI(ctx.params.owner, ctx.params.repo, GH_API_DEFAULT_RPATH)
 
   logger.info(`GH API Request URL ${ghURI}`)
-
+  // make appropriate cache find request
   try {
-    let badgeDownloads = await getBadgeData(ghURI, ctx)
+    let badgeDownloads = await getBadgeData(ghURI, ctx.db.collection(DEFAULT_DB_COLLECTION), {ghURI: ghURI}, ctx.url, ctx.origin)
+    let shieldsReqURI = sub(shieldsURI, numeral(badgeDownloads).format())
+    let badge = await getBadge(shieldsReqURI)
+    // Response
+    ctx.type = badge.type
+    ctx.body = badge.body
+  } catch (e) {
+    logger.error(e)
+    let shieldsReqURI = sub(DEFAULT_SHIELDS_URI, DEFAULT_PLACEHOLDER)
+    let badge = await getBadge(shieldsReqURI)
+    ctx.type = badge.type
+    ctx.body = badge.body
+  }
+}
+
+/**
+ * GET a badge for a single release by id
+ * DEFAULTs to latest
+ */
+exports.releaseById = async function(ctx, next) {
+  const shieldsURI = ctx.query[SHIELDS_URI_PARAM] || DEFAULT_SHIELDS_URI,
+    ghURI = buildGhURI(ctx.params.owner, ctx.params.repo, ctx.params.id)
+
+  logger.info(`GH API Request URL ${ghURI}`)
+  try {
+    let badgeDownloads = await getBadgeData(ghURI, ctx.db.collection(DEFAULT_DB_COLLECTION), {ghId: parseInt(ctx.params.id)}, ctx.url, ctx.origin)
+    let shieldsReqURI = sub(shieldsURI, numeral(badgeDownloads).format())
+    let badge = await getBadge(shieldsReqURI)
+    // Response
+    ctx.type = badge.type
+    ctx.body = badge.body
+  } catch (e) {
+    logger.error(e)
+    let shieldsReqURI = sub(DEFAULT_SHIELDS_URI, DEFAULT_PLACEHOLDER)
+    let badge = await getBadge(shieldsReqURI)
+    ctx.type = badge.type
+    ctx.body = badge.body
+  }
+}
+
+/**
+ * GET a badge for a single release by tag
+ * DEFAULTs to latest
+ */
+exports.releaseByTag = async function(ctx, next) {
+  const shieldsURI = ctx.query[SHIELDS_URI_PARAM] || DEFAULT_SHIELDS_URI,
+    ghURI = buildGhURI(ctx.params.owner, ctx.params.repo, GH_API_TAGS_RPATH , ctx.params.tag)
+
+  logger.info(`GH API Request URL ${ghURI}`)
+  try {
+    let badgeDownloads = await getBadgeData(ghURI, ctx.db.collection(DEFAULT_DB_COLLECTION), {ghTag: ctx.params.tag}, ctx.url, ctx.origin)
     let shieldsReqURI = sub(shieldsURI, numeral(badgeDownloads).format())
     let badge = await getBadge(shieldsReqURI)
     // Response
@@ -332,20 +378,23 @@ exports.release = async function(ctx, next) {
  */
 // TODO: Implement this
 exports.total = async function(ctx, next) {
-  const ghURI = buildGhURI(ctx.params.owner, ctx.params.repo),
-    shieldsURI = ctx.query[SHIELDS_URI_PARAM] || DEFAULT_SHIELDS_URI
-
-  try {
-    let badgeDownloads = await getBadgeTotalData(ghURI, ctx)
-    let shieldsReqURI = sub(shieldsURI, numeral(badgeDownloads).format())
-    // Response
-    // ctx.type = RES_MIME_TYPE
-    ctx.body = await getBadge(shieldsReqURI)
-  } catch (e) {
-    logger.error(e)
-    let shieldsReqURI = sub(DEFAULT_SHIELDS_URI, DEFAULT_PLACEHOLDER)
-    ctx.body = await getBadge(shieldsReqURI)
-  }
+  // const ghURI = buildGhURI(ctx.params.owner, ctx.params.repo),
+  //   shieldsURI = ctx.query[SHIELDS_URI_PARAM] || DEFAULT_SHIELDS_URI
+  //
+  // try {
+  //   let badgeDownloads = await getBadgeTotalData(ghURI, ctx)
+  //   let shieldsReqURI = sub(shieldsURI, numeral(badgeDownloads).format())
+  //   let badge = await getBadge(shieldsReqURI)
+  //   // Response
+  //   ctx.type = badge.type
+  //   ctx.body = badge.body
+  // } catch (e) {
+  //   logger.error(e)
+  //   let shieldsReqURI = sub(DEFAULT_SHIELDS_URI, DEFAULT_PLACEHOLDER)
+  //   let badge = await getBadge(shieldsReqURI)
+  //   ctx.type = badge.type
+  //   ctx.body = badge.body
+  // }
 }
 
 /**

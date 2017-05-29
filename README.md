@@ -51,6 +51,7 @@ Where `username` and `repo` are the GitHub username and repository respectively.
 By default, it sends the shields.io download badge (i.e.
 `https://img.shields.io/badge/downloads-${DOWNLOAD_COUNT}-green.svg`). However
 you can specify a custom badge URI.
+
 *For example*, the following markdown
 `![downloads](https://badged.space/HR/Crypter)`
 yields a shiny badge for the latest release of
