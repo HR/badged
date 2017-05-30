@@ -14,10 +14,6 @@ const req = require('request-promise-native'),
   normalizeUrl = require('normalize-url'),
   {inspect} = require('util')
 
-function debug (obj, ...args) {
-  logger.log('debug', ...args, inspect(obj, { depth: null }))
-}
-
 // GitHub API Constants
 const GH_API_BASE_URI = 'https://api.github.com/repos/%s/%s/releases',
   GH_API_STATUS_URI = 'https://api.github.com/rate_limit',
@@ -35,7 +31,6 @@ const DEFAULT_SHIELDS_URI = 'https://img.shields.io/badge/downloads-%s-green.svg
   DEFAULT_PLACEHOLDER = 'X',
   DEFAULT_REQ_UA = 'Badge Getter',
   DEFAULT_MIME_TYPE = 'image/svg+xml',
-  DEFAULT_DB_COLLECTION = 'downloads',
   SUB_REGEX = /%s/g
 
 // HTTP stuff
@@ -45,6 +40,63 @@ const HTTP_NOT_MODIFIED_CODE = 304,
   HTTP_PARTIAL_CONTENT_CODE = 206,
   HTTP_OK_REGEX = /^2/
 
+// Custom log for debugging
+function debug (obj, ...args) {
+  logger.log('debug', ...args, inspect(obj, { depth: null, colors: true }))
+}
+
+// String template substition
+function sub (str, ...subs) {
+  let n = 0
+  return str.replace(SUB_REGEX, () => {
+    return subs[n++]
+  })
+}
+
+/**
+ * Mongodb Document builders
+ */
+
+function downloadDoc (path, ghURI, ghId, ghTag, ...fields) {
+  let doc = {
+    ghETAG: fields[0],
+    ghLastMod: fields[1],
+    count: fields[2],
+    lastUpdated: fields[3],
+    requests: fields[4]
+  }
+  if (path) doc.path = path
+  if (ghURI) doc.ghURI = ghURI
+  if (ghId) doc.ghId = ghId
+  if (ghTag) doc.ghTag = ghTag
+  return doc
+}
+
+function totalDownloadDoc (path, ghURI, ...fields) {
+  let doc = {
+    pages: fields[0],
+    lastPage: fields[1],
+    count: fields[2],
+    lastUpdated: fields[3],
+    requests: fields[4]
+  }
+  if (path) doc.path = path
+  if (ghURI) doc.ghURI = ghURI
+  return doc
+}
+
+function pageDoc (...fields) {
+  return {
+    page: fields[0],
+    ghETAG: fields[1],
+    ghURI: fields[2],
+    lastUpdated: fields[3],
+    count: fields[4]
+  }
+}
+
+
+// Builds request options for GET badge calls
 function buildBadgeOpts (URI) {
   return {
     uri: URI,
@@ -56,7 +108,7 @@ function buildBadgeOpts (URI) {
   }
 }
 
-// Build request options
+// Builds request options for GH API calls
 function buildGhApiOpts (URI, opts) {
   return _.merge({
     uri: URI,
@@ -71,33 +123,6 @@ function buildGhApiOpts (URI, opts) {
   }, opts)
 }
 
-// String template substition
-function sub (str, ...subs) {
-  let n = 0
-  return str.replace(SUB_REGEX, () => {
-    return subs[n++]
-  })
-}
-
-/**
- * Mongodb 'downloads' Collection Schema
- * Generates a mongodb 'download' document
- */
-function Schema (path, ghURI, ghId, ghTag, ...fields) {
-  let schema = {
-    ghETAG: fields[0],
-    ghLastMod: fields[1],
-    count: fields[2],
-    lastUpdated: fields[3],
-    requests: fields[4]
-  }
-  if (path) schema.path = path
-  if (ghURI) schema.ghURI = ghURI
-  if (ghId) schema.ghId = ghId
-  if (ghTag) schema.ghTag = ghTag
-  return schema
-}
-
 // Builds the GitHub API Request URI
 function buildGhURI (owner, repo, ...paths) {
   const apiReqBase = sub(GH_API_BASE_URI, owner, repo)
@@ -106,7 +131,7 @@ function buildGhURI (owner, repo, ...paths) {
 }
 
 // Build querystring (for pagination)
-function buildPageQsUri (uri, page) {
+function buildPageQsURI (uri, page) {
   let qs = {
     per_page: GH_API_PAGE_SIZE
   }
@@ -173,17 +198,7 @@ async function fetchParallel (urls) {
 
   // log them in sequence
   for (const pagePromise of pagePromises) {
-    console.log(await pagePromise)
-  }
-}
-
-function pageSchema (...fields) {
-  return {
-    page: fields[0],
-    ghETAG: fields[1],
-    ghURI: fields[2],
-    lastUpdated: fields[3],
-    count: fields[4]
+    await pagePromise
   }
 }
 
@@ -191,35 +206,37 @@ function pageSchema (...fields) {
  * Get the badge data of total (#downloads)
  * From the GitHub API
  */
-async function getBadgeTotalData (ghURI) {
-  const firstPageURI = buildPageQsUri(ghURI)
+async function getTotalReleasesData (ghURI) {
+  const firstPageURI = buildPageQsURI(ghURI)
   const firstPage = await req(buildGhApiOpts(firstPageURI))
-  var pageList = []
-  var totalDownloadCount = 0
+  const lastUpdated = firstPage.headers.date
+  const secondPage = 2
+  let pages = [] // page list
+  let count = 0 // total count
+  let lastPage = 1 // last page is the first by default
 
-  totalDownloadCount += getDownloadCount(firstPage.body)
+  count += getDownloadCount(firstPage.body)
 
-  pageList.push(pageSchema(1, firstPage.headers.etag, firstPageURI, firstPage.headers.date, totalDownloadCount))
+  pages.push(pageDoc(1, firstPage.headers.etag, firstPageURI, lastUpdated, count))
 
   debug(firstPageURI, 'firstPageURI:')
-  debug(totalDownloadCount, 'firstPage download count:')
+  debug(count, 'firstPage download count:')
 
   if (_.has(firstPage, 'headers.link')) {
     // Response is paginated
     logger.info(`Response IS paginated`)
     let linkHeader = parseLink(firstPage.headers.link)
-    let lastPage = parseInt(linkHeader.last.page)
-    let secondPage = 2
+    lastPage = parseInt(linkHeader.last.page)
 
     // Traverse pages (fetch all in parallel)
     const pageFetchPromises = _.range(secondPage, lastPage+1).map(async page => {
-      let pageURI = buildPageQsUri(ghURI, page)
+      let pageURI = buildPageQsURI(ghURI, page)
       let fetchedPage = await req(buildGhApiOpts(pageURI))
       let downloadCount = getDownloadCount(fetchedPage.body)
-      totalDownloadCount += downloadCount
-      pageList.push(pageSchema(page, fetchedPage.headers.etag, pageURI, fetchedPage.headers.date, downloadCount))
+      count += downloadCount
+      pages.push(pageDoc(page, fetchedPage.headers.etag, pageURI, fetchedPage.headers.date, downloadCount))
       debug(fetchedPage.request.href, 'Fetched ')
-      debug(totalDownloadCount, 'Download count: ')
+      debug(count, 'Download count: ')
       return fetchedPage
     })
 
@@ -228,12 +245,12 @@ async function getBadgeTotalData (ghURI) {
       await pageFetchPromise
     }
 
-    debug(pageList, 'pageList is:\n')
+    debug(pages, 'pages is:\n')
   } else {
     // Response is not paginated
     logger.info(`Response is NOT paginated`)
   }
-  return totalDownloadCount
+  return {count, pages, lastPage, lastUpdated}
 }
 
 
@@ -241,8 +258,9 @@ async function getBadgeTotalData (ghURI) {
  * Get the badge data (#downloads)
  * From cache or via GitHub API
  */
-// TODO: Modularise
-async function getBadgeData (ghURI, downloads, findFilter, path) {
+// TODO: Modularise (try using a generator for selection)
+async function getBadgeData (ghURI, downloads, findFilter, path, total) {
+  // finds by the request path by default
   findFilter = findFilter || {path}
   // Query cache for existence
   const cachedReleaseData = await downloads.findOne(findFilter)
@@ -250,25 +268,46 @@ async function getBadgeData (ghURI, downloads, findFilter, path) {
   debug(cachedReleaseData, 'Cached data:', '\n')
   debug(path, 'Normalized Request path:')
 
+  // Check if in cache
   if (_.isEmpty(cachedReleaseData)) {
     // Not in cache so fetch
     logger.info(`${path} NOT IN cache. Fetching...`)
 
-    // Fetch release data
-    let releaseData = await getReleaseData(ghURI)
+    if (total) {
+      // Get downloads for all releases
 
-    // Update cache
-    let outcome = await downloads.insertOne(Schema(
-      path,
-      ghURI,
-      releaseData.body.id,
-      releaseData.body.tag_name,
-      releaseData.headers.etag,
-      releaseData.headers['last-modified'],
-      releaseData.count,
-      releaseData.headers.date,
-      1
-    ))
+      // Fetch releases data
+      var releaseData = await getTotalReleasesData(ghURI)
+
+      // Update cache
+      var outcome = await downloads.insertOne(totalDownloadDoc(
+        path,
+        ghURI,
+        releaseData.pages,
+        releaseData.lastPage,
+        releaseData.count,
+        releaseData.lastUpdated,
+        1
+      ))
+    } else {
+      // Get downloads for a release
+
+      // Fetch release data
+      var releaseData = await getReleaseData(ghURI)
+
+      // Update cache
+      var outcome = await downloads.insertOne(downloadDoc(
+        path,
+        ghURI,
+        releaseData.body.id,
+        releaseData.body.tag_name,
+        releaseData.headers.etag,
+        releaseData.headers['last-modified'],
+        releaseData.count,
+        releaseData.headers.date,
+        1
+      ))
+    }
 
     logOutcome(outcome.insertedCount, 1, 'insert', path)
 
@@ -291,7 +330,7 @@ async function getBadgeData (ghURI, downloads, findFilter, path) {
     let releaseData = await req(buildGhApiOpts(ghURI, extraOpts))
     const statusCode = releaseData.statusCode
 
-    logger.info(`Got response ${releaseData.headers.status}.`)
+    debug(releaseData.headers.status, `Got response`)
     // Check if outdated
     switch (true) {
       case statusCode === HTTP_NOT_MODIFIED_CODE:
@@ -315,7 +354,7 @@ async function getBadgeData (ghURI, downloads, findFilter, path) {
         logger.info(`${path} HAS changed. Updating cache & serving...`)
         releaseData.count = getDownloadCount(releaseData.body)
 
-        let updatedDownload = Schema(
+        let updatedDownload = downloadDoc(
           null,
           null,
           releaseData.body.id,
@@ -351,7 +390,7 @@ exports.release = async function(ctx, next) {
   logger.info(`GH API Request URL ${ghURI}`)
   // make appropriate cache find request
   try {
-    let badgeDownloads = await getBadgeData(ghURI, ctx.db.collection(DEFAULT_DB_COLLECTION), null, ctx.path, ctx.origin)
+    let badgeDownloads = await getBadgeData(ghURI, ctx.downloads, null, ctx.path)
     let shieldsReqURI = sub(shieldsURI, numeral(badgeDownloads).format())
     let badge = await getBadge(shieldsReqURI)
     // Response
@@ -378,7 +417,7 @@ exports.releaseById = async function(ctx, next) {
 
   logger.info(`GH API Request URL ${ghURI}`)
   try {
-    let badgeDownloads = await getBadgeData(ghURI, ctx.db.collection(DEFAULT_DB_COLLECTION), {ghId: parseInt(ctx.params.id)}, ctx.path, ctx.origin)
+    let badgeDownloads = await getBadgeData(ghURI, ctx.downloads, {ghId: parseInt(ctx.params.id)}, ctx.path)
     let shieldsReqURI = sub(shieldsURI, numeral(badgeDownloads).format())
     let badge = await getBadge(shieldsReqURI)
     // Response
@@ -405,7 +444,7 @@ exports.releaseByTag = async function(ctx, next) {
 
   logger.info(`GH API Request URL ${ghURI}`)
   try {
-    let badgeDownloads = await getBadgeData(ghURI, ctx.db.collection(DEFAULT_DB_COLLECTION), {ghTag: ctx.params.tag}, ctx.path, ctx.origin)
+    let badgeDownloads = await getBadgeData(ghURI, ctx.downloads, {ghTag: ctx.params.tag}, ctx.path)
     let shieldsReqURI = sub(shieldsURI, numeral(badgeDownloads).format())
     let badge = await getBadge(shieldsReqURI)
     // Response
@@ -431,7 +470,7 @@ exports.total = async function(ctx, next) {
     shieldsURI = ctx.query[SHIELDS_URI_PARAM] || DEFAULT_SHIELDS_URI
 
   try {
-    let badgeDownloads = await getBadgeTotalData(ghURI, ctx.db.collection(DEFAULT_DB_COLLECTION), null, ctx.path, ctx.origin)
+    let badgeDownloads = await getBadgeData(ghURI, ctx.downloads, null, ctx.path, true)
     let shieldsReqURI = sub(shieldsURI, numeral(badgeDownloads).format())
     let badge = await getBadge(shieldsReqURI)
     // Response

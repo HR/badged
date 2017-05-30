@@ -10,6 +10,7 @@ const logger = require('./script/logger')
 const controllersPath = `${__dirname}/controllers`,
   badge = require(`${controllersPath}/badge`),
   home = require(`${controllersPath}/home`),
+  {resolve} = require('path'),
   responseTime = require('koa-response-time'),
   serve = require('koa-static'),
   compress = require('koa-compress'),
@@ -21,7 +22,8 @@ const controllersPath = `${__dirname}/controllers`,
   MongoClient = require('mongodb').MongoClient,
   ENV = process.env.NODE_ENV || 'development',
   PORT = process.env.PORT || '4000',
-  MONGODB_URI = process.env.MONGODB_URI
+  MONGODB_URI = process.env.MONGODB_URI,
+  DEFAULT_DB_COLLECTION = 'downloads'
 
 // Init
 const app = new koa()
@@ -34,7 +36,7 @@ var _db
 
  // Normalize
  function normalize(path) {
-   return path.toString().toLowerCase()
+   return resolve(path.toString().toLowerCase())
  }
 
 // Middleware to protect against HTTP Parameter Pollution attacks
@@ -71,6 +73,7 @@ app.use(compress())
 // Add database to the context
 app.use(async (ctx, next) => {
   ctx.db = _db
+  ctx.downloads = _db.collection(DEFAULT_DB_COLLECTION)
   await next()
 })
 
