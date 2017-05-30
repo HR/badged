@@ -165,22 +165,6 @@ function logOutcome (val, equal, op, url) {
   }
 }
 
-// Identify request
-function resolveReq (reqArr, origin) {
-  let requestIndex = _.findIndex(reqArr, (o) => o.origin == origin)
-  if (requestIndex !== -1) {
-    // Known request
-    reqArr[requestIndex].count++
-  } else {
-    // New request
-    reqArr.push({
-      origin: origin,
-      count: 1
-    })
-  }
-  return reqArr
-}
-
 async function fetchParallel (urls) {
   // fetch all the URLs in parallel
   const pagePromises = urls.map(async url => {
@@ -258,7 +242,7 @@ async function getBadgeTotalData (ghURI) {
  * From cache or via GitHub API
  */
 // TODO: Modularise
-async function getBadgeData (ghURI, downloads, findFilter, path, origin, total) {
+async function getBadgeData (ghURI, downloads, findFilter, path) {
   findFilter = findFilter || {path}
   // Query cache for existence
   const cachedReleaseData = await downloads.findOne(findFilter)
@@ -283,10 +267,7 @@ async function getBadgeData (ghURI, downloads, findFilter, path, origin, total) 
       releaseData.headers['last-modified'],
       releaseData.count,
       releaseData.headers.date,
-      [{
-        origin: origin,
-        count: 1
-      }]
+      1
     ))
 
     logOutcome(outcome.insertedCount, 1, 'insert', path)
@@ -296,7 +277,6 @@ async function getBadgeData (ghURI, downloads, findFilter, path, origin, total) 
     // In cache
     logger.info(`${path} IN cache. Checking if changed`)
 
-    let requests = resolveReq(cachedReleaseData.requests, origin)
     let updateOpts = {
       returnOriginal: false
     }
@@ -318,14 +298,14 @@ async function getBadgeData (ghURI, downloads, findFilter, path, origin, total) 
         // Has not been modified
         logger.info(`${path} has NOT changed. Serving from cache...`)
         // Update cache requests
-        var outcome = await downloads.updateOne(findFilter, {$set: {requests: requests}}, updateOpts)
+        var outcome = await downloads.updateOne(findFilter, {$inc: {requests: 1}}, updateOpts)
         logOutcome(outcome.modifiedCount, 1, 'update requests', path)
         // Serve from cache
         return cachedReleaseData.count
 
       case statusCode === HTTP_FORBIDDEN_CODE:
         // GitHub API Limit reached
-        var outcome = await downloads.updateOne(findFilter, {$set: {requests: requests}}, updateOpts)
+        var outcome = await downloads.updateOne(findFilter, {$inc: {requests: 1}}, updateOpts)
         logOutcome(outcome.modifiedCount, 1, 'update requests', path)
         // Serve from cache
         return cachedReleaseData.count
@@ -344,7 +324,7 @@ async function getBadgeData (ghURI, downloads, findFilter, path, origin, total) 
           releaseData.headers['last-modified'],
           releaseData.count,
           releaseData.headers.date,
-          requests
+          ++cachedReleaseData.requests
         )
 
         // Update cache
@@ -355,7 +335,7 @@ async function getBadgeData (ghURI, downloads, findFilter, path, origin, total) 
 
       default:
         // Reject async fn with error occurred
-        throw new Error(`Got response ${releaseData.headers.status} from GH API at ${releaseData.headers['x-ratelimit-remaining']} used limit`)
+        throw new Error(`Got response ${releaseData.headers.status}, ratelimit ${releaseData.headers['x-ratelimit-remaining']}`)
     }
   }
 }
