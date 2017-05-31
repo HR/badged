@@ -34,10 +34,10 @@ var _db
  * Environment.
  */
 
- // Normalize
- function normalize(path) {
-   return resolve(path.toString().toLowerCase())
- }
+// Normalize
+function normalize (path) {
+  return resolve(path.toString().toLowerCase())
+}
 
 // Middleware to protect against HTTP Parameter Pollution attacks
 app.use(async (ctx, next) => {
@@ -81,8 +81,6 @@ app.use(async (ctx, next) => {
  * Routes
  */
 router.get('/', home.index)
-router.get('/debug', badge.debug)
-router.get('/d/debug', badge.debug)
 router.get('/status', badge.status)
 router.get('/:owner/:repo', badge.release)
 router.get('/:owner/:repo/total', badge.total)

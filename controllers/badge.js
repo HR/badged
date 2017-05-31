@@ -10,9 +10,8 @@ const req = require('request-promise-native'),
   numeral = require('numeral'),
   parseLink = require('parse-link-header'),
   _ = require('lodash'),
-  querystring = require('querystring'),
-  normalizeUrl = require('normalize-url'),
-  {inspect} = require('util')
+  querystring = require('querystring')
+const {inspect} = require('util')
 
 // GitHub API Constants
 const GH_API_BASE_URI = 'https://api.github.com/repos/%s/%s/releases',
@@ -31,7 +30,9 @@ const DEFAULT_SHIELDS_URI = 'https://img.shields.io/badge/downloads-%s-green.svg
   DEFAULT_PLACEHOLDER = 'X',
   DEFAULT_REQ_UA = 'Badge Getter',
   DEFAULT_MIME_TYPE = 'image/svg+xml',
-  SUB_REGEX = /%s/g
+  DEFAULT_DB_UPDATE_OPTS = {
+    returnOriginal: false
+}
 
 // HTTP stuff
 const HTTP_NOT_MODIFIED_CODE = 304,
@@ -40,10 +41,7 @@ const HTTP_NOT_MODIFIED_CODE = 304,
   HTTP_PARTIAL_CONTENT_CODE = 206,
   HTTP_OK_REGEX = /^2/
 
-// Custom log for debugging
-function debug (obj, ...args) {
-  logger.log('debug', ...args, inspect(obj, { depth: null, colors: true }))
-}
+const SUB_REGEX = /%s/g
 
 // String template substition
 function sub (str, ...subs) {
@@ -51,6 +49,15 @@ function sub (str, ...subs) {
   return str.replace(SUB_REGEX, () => {
     return subs[n++]
   })
+}
+
+function inspectObj (obj) {
+  return inspect(obj, { depth: null, colors: true })
+}
+
+// Custom log for debugging
+function debug (obj, ...args) {
+  logger.log('debug', ...args, inspectObj(obj))
 }
 
 /**
@@ -95,7 +102,6 @@ function pageDoc (...fields) {
   }
 }
 
-
 // Builds request options for GET badge calls
 function buildBadgeOpts (URI) {
   return {
@@ -109,8 +115,8 @@ function buildBadgeOpts (URI) {
 }
 
 // Builds request options for GH API calls
-function buildGhApiOpts (URI, opts) {
-  return _.merge({
+function buildGhApiOpts (URI, ifReqVal) {
+  let ghApiOpts = {
     uri: URI,
     headers: {
       // Required for GitHub API
@@ -120,7 +126,18 @@ function buildGhApiOpts (URI, opts) {
     },
     resolveWithFullResponse: true,
     json: true
-  }, opts)
+  }
+  if (ifReqVal) {
+    // Merge opts
+    return _.merge(ghApiOpts, {
+      simple: false, // to handle response filteration
+      headers: {
+        // For conditional request
+        'If-None-Match': ifReqVal
+      }
+    })
+  }
+  return ghApiOpts
 }
 
 // Builds the GitHub API Request URI
@@ -206,7 +223,7 @@ async function fetchParallel (urls) {
  * Get the badge data of total (#downloads)
  * From the GitHub API
  */
-async function getTotalReleasesData (ghURI) {
+async function getTotalReleasesDataOld (ghURI) {
   const firstPageURI = buildPageQsURI(ghURI)
   const firstPage = await req(buildGhApiOpts(firstPageURI))
   const lastUpdated = firstPage.headers.date
@@ -229,7 +246,7 @@ async function getTotalReleasesData (ghURI) {
     lastPage = parseInt(linkHeader.last.page)
 
     // Traverse pages (fetch all in parallel)
-    const pageFetchPromises = _.range(secondPage, lastPage+1).map(async page => {
+    const pageFetchPromises = _.range(secondPage, lastPage + 1).map(async page => {
       let pageURI = buildPageQsURI(ghURI, page)
       let fetchedPage = await req(buildGhApiOpts(pageURI))
       let downloadCount = getDownloadCount(fetchedPage.body)
@@ -253,13 +270,179 @@ async function getTotalReleasesData (ghURI) {
   return {count, pages, lastPage, lastUpdated}
 }
 
+function getPage (pageNo, fetchedPage, cachedPage) {
+  switch (true) {
+    case fetchedPage.statusCode === HTTP_NOT_MODIFIED_CODE:
+      // Has not been modified
+      logger.info(`Page ${pageNo} has NOT changed. Serving from cache...`)
+      // Serve from cache
+      return cachedPage
+
+    case fetchedPage.statusCode === HTTP_FORBIDDEN_CODE:
+    // GitHub API Limit reached
+
+      // Throw error if uncached page
+      if (!cachedPage) throw new Error(`${fetchedPage.statusCode}: GH API Limit reached`)
+      // Serve from cache
+      return cachedPage
+
+    case HTTP_OK_REGEX.test(fetchedPage.statusCode.toString()):
+      // Has been modified or is new
+      logger.info(`Page ${pageNo} HAS changed. Updating cache & serving...`)
+
+      // Create page
+      let downloadCount = getDownloadCount(fetchedPage.body)
+      debug(fetchedPage.request.href, 'Fetched ')
+      // Serve from freshly fetched data
+      return pageDoc(pageNo, fetchedPage.headers.etag, fetchedPage.request.href, fetchedPage.headers.date, downloadCount)
+
+    default:
+      let unknownError = new Error(`Got bad response ${fetchedPage.headers.status},
+        full response`, '\n', inspectObj(fetchedPage))
+      // Unknown error occurred
+      logger.error(unknownError)
+      // Throw error if uncached page
+      if (!cachedPage) throw unknownError
+      // Still serve from cache
+      return cachedPage
+  }
+}
+
+async function getTotalDownloadData (ghURI, cachedData) {
+  const firstPageURI = buildPageQsURI(ghURI)
+  const firstPageNo = 1
+  const firstCachedPage = _.hasIn(cachedData, `pages[${firstPageNo}]`) ? cachedData.pages[firstPageNo] : null
+  const firstPageETAG = cachedData ? firstCachedPage.ghETAG : null
+  const firstPage = await req(buildGhApiOpts(firstPageURI, firstPageETAG))
+  const lastUpdated = firstPage.headers.date
+  let pages = {} // page map
+  let count = 0 // total download count
+  let lastPage = 1 // last page is the first by default
+
+  pages[firstPageNo] = getPage(firstPageNo, firstPage, firstCachedPage)
+
+  debug(firstPageURI, 'firstPageURI:')
+
+  if (_.has(firstPage, 'headers.link')) {
+    // Response is paginated
+    logger.info(`Response IS paginated`)
+    let linkHeader = parseLink(firstPage.headers.link)
+    lastPage = parseInt(linkHeader.last.page)
+
+    // Traverse pages (fetch all in parallel) excl. first page
+    const getPagePromises = _.rangeRight(lastPage, firstPageNo).map(async pageNo => {
+      let pageURI = buildPageQsURI(ghURI, pageNo)
+      // Only use etag when cachedData passed
+      // If page exists use it otherwise create a new one
+      let cachedPage = _.hasIn(cachedData, `pages[${pageNo}]`) ? cachedData.pages[pageNo] : null
+      let fetchPageETAG = cachedPage ? cachedPage.ghETAG : null
+      let fetchedPage = await req(buildGhApiOpts(pageURI, fetchPageETAG))
+      pages[pageNo] = getPage(pageNo, fetchedPage, cachedPage)
+      return 1
+    })
+
+    // Fetch the pages in sequence
+    for (const getPagePromise of getPagePromises) {
+      await getPagePromise
+    }
+
+    debug(pages, 'Pages is:\n')
+  } else {
+    // Response is not paginated
+    logger.info(`Response is NOT paginated`)
+  }
+
+  // Sum the download count for each page to calc total
+  for (let page in pages) {
+    count += pages[page].count
+  }
+
+  debug(count, 'Total download count:')
+
+  return {count, pages, lastPage, lastUpdated}
+}
+
+async function getBadgeTotalData (ghURI, downloads, findFilter, path) {
+  // finds by the request path by default
+  findFilter = findFilter || {path}
+  // Query cache for existence
+  const cachedTotalDownloadData = await downloads.findOne(findFilter)
+
+  debug(cachedTotalDownloadData, 'Cached data:', '\n')
+  debug(path, 'Normalized Request path:')
+
+  // Check if in cache
+  if (_.isEmpty(cachedTotalDownloadData)) {
+    // Not in cache so fetch
+    logger.info(`${path} NOT IN cache. Fetching...`)
+
+    // Get the latest total download data
+    const totalDownloadData = await getTotalDownloadData(ghURI)
+
+    // Update cache
+    const outcome = await downloads.insertOne(totalDownloadDoc(
+      path,
+      ghURI,
+      totalDownloadData.pages,
+      totalDownloadData.lastPage,
+      totalDownloadData.count,
+      totalDownloadData.lastUpdated,
+      1
+    ))
+
+    logOutcome(outcome.insertedCount, 1, 'insert', path)
+
+    return totalDownloadData.count
+  } else {
+    // In cache
+    logger.info(`${path} IN cache. Checking if changed`)
+
+    // Get the latest total download data
+    const totalDownloadData = await getTotalDownloadData(ghURI, cachedTotalDownloadData)
+
+    if (totalDownloadData.count !== cachedTotalDownloadData.count) {
+      // Data has changed so update cache
+      const updatedDoc = totalDownloadDoc(
+        null,
+        null,
+        totalDownloadData.pages,
+        totalDownloadData.lastPage,
+        totalDownloadData.count,
+        totalDownloadData.lastUpdated,
+        ++cachedTotalDownloadData.requests
+      )
+
+      // Update cache
+      const outcome = await downloads.updateOne(findFilter, {$set: updatedDoc}, DEFAULT_DB_UPDATE_OPTS)
+      logOutcome(outcome.modifiedCount, 1, 'update totalDownload', path)
+
+      // Serve from freshly fetched data
+      return totalDownloadData.count
+    } else {
+      return cachedTotalDownloadData.count
+    }
+
+    // if (_.has(releaseData, 'headers.link')) {
+    //   // Response is paginated
+    //   let linkHeader = parseLink(firstPage.headers.link)
+    //   lastPage = parseInt(linkHeader.last.page)
+    //   if (lastPage != cachedReleaseData.lastPage) {
+    //     // Need to re-fetch all data
+    //
+    //   } else {
+    //     // Only fetch changed pages (i.e. req with etag)
+    //   }
+    // }
+
+  }
+}
 
 /**
  * Get the badge data (#downloads)
  * From cache or via GitHub API
  */
 // TODO: Modularise (try using a generator for selection)
-async function getBadgeData (ghURI, downloads, findFilter, path, total) {
+async function getBadgeData (ghURI, downloads, findFilter, path) {
   // finds by the request path by default
   findFilter = findFilter || {path}
   // Query cache for existence
@@ -273,41 +456,23 @@ async function getBadgeData (ghURI, downloads, findFilter, path, total) {
     // Not in cache so fetch
     logger.info(`${path} NOT IN cache. Fetching...`)
 
-    if (total) {
-      // Get downloads for all releases
+    // Get downloads for a release
 
-      // Fetch releases data
-      var releaseData = await getTotalReleasesData(ghURI)
+    // Fetch release data
+    var releaseData = await getReleaseData(ghURI)
 
-      // Update cache
-      var outcome = await downloads.insertOne(totalDownloadDoc(
-        path,
-        ghURI,
-        releaseData.pages,
-        releaseData.lastPage,
-        releaseData.count,
-        releaseData.lastUpdated,
-        1
-      ))
-    } else {
-      // Get downloads for a release
-
-      // Fetch release data
-      var releaseData = await getReleaseData(ghURI)
-
-      // Update cache
-      var outcome = await downloads.insertOne(downloadDoc(
-        path,
-        ghURI,
-        releaseData.body.id,
-        releaseData.body.tag_name,
-        releaseData.headers.etag,
-        releaseData.headers['last-modified'],
-        releaseData.count,
-        releaseData.headers.date,
-        1
-      ))
-    }
+    // Update cache
+    var outcome = await downloads.insertOne(downloadDoc(
+      path,
+      ghURI,
+      releaseData.body.id,
+      releaseData.body.tag_name,
+      releaseData.headers.etag,
+      releaseData.headers['last-modified'],
+      releaseData.count,
+      releaseData.headers.date,
+      1
+    ))
 
     logOutcome(outcome.insertedCount, 1, 'insert', path)
 
@@ -316,18 +481,8 @@ async function getBadgeData (ghURI, downloads, findFilter, path, total) {
     // In cache
     logger.info(`${path} IN cache. Checking if changed`)
 
-    let updateOpts = {
-      returnOriginal: false
-    }
-    let extraOpts = {
-      simple: false,
-      headers: {
-        'If-None-Match': cachedReleaseData.ghETAG
-      }
-    }
-
     // Fetch release data
-    let releaseData = await req(buildGhApiOpts(ghURI, extraOpts))
+    let releaseData = await req(buildGhApiOpts(ghURI, cachedReleaseData.ghETAG))
     const statusCode = releaseData.statusCode
 
     debug(releaseData.headers.status, `Got response`)
@@ -337,19 +492,19 @@ async function getBadgeData (ghURI, downloads, findFilter, path, total) {
         // Has not been modified
         logger.info(`${path} has NOT changed. Serving from cache...`)
         // Update cache requests
-        var outcome = await downloads.updateOne(findFilter, {$inc: {requests: 1}}, updateOpts)
+        var outcome = await downloads.updateOne(findFilter, {$inc: {requests: 1}}, DEFAULT_DB_UPDATE_OPTS)
         logOutcome(outcome.modifiedCount, 1, 'update requests', path)
         // Serve from cache
         return cachedReleaseData.count
 
       case statusCode === HTTP_FORBIDDEN_CODE:
         // GitHub API Limit reached
-        var outcome = await downloads.updateOne(findFilter, {$inc: {requests: 1}}, updateOpts)
+        var outcome = await downloads.updateOne(findFilter, {$inc: {requests: 1}}, DEFAULT_DB_UPDATE_OPTS)
         logOutcome(outcome.modifiedCount, 1, 'update requests', path)
         // Serve from cache
         return cachedReleaseData.count
 
-      case HTTP_OK_REGEX.test(releaseData.statusCode.toString()):
+      case HTTP_OK_REGEX.test(statusCode.toString()):
         // Has been modified
         logger.info(`${path} HAS changed. Updating cache & serving...`)
         releaseData.count = getDownloadCount(releaseData.body)
@@ -367,14 +522,17 @@ async function getBadgeData (ghURI, downloads, findFilter, path, total) {
         )
 
         // Update cache
-        var outcome = await downloads.updateOne(findFilter, {$set: updatedDownload}, updateOpts)
+        var outcome = await downloads.updateOne(findFilter, {$set: updatedDownload}, DEFAULT_DB_UPDATE_OPTS)
         logOutcome(outcome.modifiedCount, 1, 'update download', path)
         // Serve from freshly fetched data
         return releaseData.count
 
       default:
-        // Reject async fn with error occurred
-        throw new Error(`Got response ${releaseData.headers.status}, ratelimit ${releaseData.headers['x-ratelimit-remaining']}`)
+        // Unknown error occurred
+        logger.error(new Error(`Got bad response ${releaseData.headers.status},
+          full response`, '\n', inspectObj(releaseData)))
+        // Still serve from cache
+        return cachedReleaseData.count
     }
   }
 }
@@ -470,7 +628,7 @@ exports.total = async function(ctx, next) {
     shieldsURI = ctx.query[SHIELDS_URI_PARAM] || DEFAULT_SHIELDS_URI
 
   try {
-    let badgeDownloads = await getBadgeData(ghURI, ctx.downloads, null, ctx.path, true)
+    let badgeDownloads = await getBadgeTotalData(ghURI, ctx.downloads, null, ctx.path)
     let shieldsReqURI = sub(shieldsURI, numeral(badgeDownloads).format())
     let badge = await getBadge(shieldsReqURI)
     // Response
@@ -500,18 +658,6 @@ exports.status = async function(ctx, next) {
     }
     ctx.type = 'text/html'
     ctx.body = resBody
-  } catch (e) {
-    logger.error(e)
-  }
-}
-
-exports.debug = async function(ctx, next) {
-  // const reqURL = normalizeUrl(ctx.path, { removeQueryParameters: [SHIELDS_URI_PARAM]})
-  logger.debug(`url: ${ctx.url}, originalUrl: ${ctx.originalUrl}, path: ${ctx.path}`)
-  // logger.info(`isReqValid: ${isReqValid(ctx.query)}`)
-  // logger.info(JSON.stringify(ctx.query))
-  try {
-    ctx.body = 'debug'
   } catch (e) {
     logger.error(e)
   }

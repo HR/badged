@@ -15,7 +15,7 @@ const logConsoleOpts = {
 fs.ensureDirSync(logDir)
 
 winston.configure({
-  level: process.env.NODE_ENV === 'development' ? 'silly' : 'debug',
+  level: process.env.NODE_ENV === 'development' ? 'debug' : 'info',
   exitOnError: false,
   emitErrs: true,
   handleExceptions: true,

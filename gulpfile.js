@@ -1,6 +1,7 @@
-var gulp = require('gulp')
-var nodemon = require('gulp-nodemon')
-var env = require('gulp-env')
+const gulp = require('gulp'),
+  nodemon = require('gulp-nodemon'),
+  env = require('gulp-env'),
+  exec = require('child_process').exec
 
 gulp.task('nodemon', function () {
   env({
@@ -10,7 +11,27 @@ gulp.task('nodemon', function () {
 
   nodemon({
     script: 'app.js',
-    ext: 'js'
+    verbose: true,
+    debug: true,
+    ignore: ['logs/', '*.log', '.DS_Store'],
+    nodeArgs: ['--inspect'],
+    ext: 'js json',
+    events: {
+      restart: "osascript -e 'display notification \"App restarted due to:\n'$FILENAME'\" with title \"nodemon\"'"
+    }
+  })
+})
+
+gulp.task('inspect', function (cb) {
+  env({
+    file: '.env',
+    vars: {}
+  })
+
+  exec('./node_modules/.bin/nodemon --inspect-brk app.js', function (err, stdout, stderr) {
+    console.log(stdout)
+    console.log(stderr)
+    cb(err)
   })
 })
 
