@@ -1,4 +1,10 @@
-// @flow
+'use strict'
+/**
+ * Sweet Home
+ * Renders the README.md in GH style
+ * (C) Habib Rehman
+ ******************************/
+ //TODO: Use template engine instead of hardcoded HTML strings
 const showdown = require('showdown'),
   logger = require('winston'),
   converter = new showdown.Converter(),

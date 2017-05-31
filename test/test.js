@@ -1,4 +1,9 @@
-/* WIP */
+/**
+ * Tests
+ * TODO: this
+ * (C) Habib Rehman
+ ******************************/
+
 var request = require('supertest')
 var api = require('../..')
 

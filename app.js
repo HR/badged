@@ -2,6 +2,7 @@
 /**
  * app.js
  * Entry point for the Badged App
+ * (C) Habib Rehman
  ******************************/
 
 // Init logger to override console
