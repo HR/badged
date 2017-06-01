@@ -29,6 +29,8 @@ const SHIELDS_URI_PARAM = 'badge',
 // Defaults
 const DEFAULT_SHIELDS_URI = 'https://img.shields.io/badge/downloads-%s-green.svg',
   DEFAULT_PLACEHOLDER = 'X',
+  DEFAULT_BADGE_SUFFIX = 'latest',
+  DEFAULT_BADGE_TOTAL_SUFFIX = 'total',
   DEFAULT_REQ_UA = 'Badge Getter',
   DEFAULT_MIME_TYPE = 'image/svg+xml',
   DEFAULT_DB_UPDATE_OPTS = {
@@ -177,6 +179,14 @@ function buildPageQsURI (uri, page) {
   }
   if (page) qs.page = page
   return `${uri}?${querystring.stringify(qs)}`
+}
+
+// Build shield uri
+function buildShieldsURI (shieldsURI, suffix, downloadCount) {
+  shieldsURI = shieldsURI || DEFAULT_SHIELDS_URI
+  let shieldsReqURI = sub(shieldsURI, numeral(downloadCount).format().concat(' ', suffix))
+  debug(encodeURI(shieldsReqURI), 'shieldsReqURI: ')
+  return encodeURI(shieldsReqURI)
 }
 
 /**
@@ -577,15 +587,13 @@ async function getBadgeData (ghURI, downloads, findFilter, path) {
  * DEFAULTs to latest
  */
 exports.release = async function(ctx, next) {
-  const shieldsURI = ctx.query[SHIELDS_URI_PARAM] || DEFAULT_SHIELDS_URI,
-    ghURI = buildGhURI(ctx.params.owner, ctx.params.repo, GH_API_DEFAULT_RPATH)
+  const ghURI = buildGhURI(ctx.params.owner, ctx.params.repo, GH_API_DEFAULT_RPATH)
 
   logger.info(`GH API Request URL ${ghURI}`)
 
   try {
     let badgeDownloads = await getBadgeData(ghURI, ctx.downloads, null, ctx.path)
-    let shieldsReqURI = sub(shieldsURI, numeral(badgeDownloads).format())
-    let badge = await getBadge(shieldsReqURI)
+    let badge = await getBadge(buildShieldsURI(ctx.query[SHIELDS_URI_PARAM], DEFAULT_BADGE_SUFFIX, badgeDownloads))
     // Response
     badgeResponse(ctx, badge)
   } catch (e) {
@@ -600,15 +608,13 @@ exports.release = async function(ctx, next) {
  * DEFAULTs to latest
  */
 exports.releaseById = async function(ctx, next) {
-  const shieldsURI = ctx.query[SHIELDS_URI_PARAM] || DEFAULT_SHIELDS_URI,
-    ghURI = buildGhURI(ctx.params.owner, ctx.params.repo, ctx.params.id)
+  const ghURI = buildGhURI(ctx.params.owner, ctx.params.repo, ctx.params.id)
 
   logger.info(`GH API Request URL ${ghURI}`)
 
   try {
     let badgeDownloads = await getBadgeData(ghURI, ctx.downloads, {ghId: parseInt(ctx.params.id)}, ctx.path)
-    let shieldsReqURI = sub(shieldsURI, numeral(badgeDownloads).format())
-    let badge = await getBadge(shieldsReqURI)
+    let badge = await getBadge(buildShieldsURI(ctx.query[SHIELDS_URI_PARAM], ctx.params.id, badgeDownloads))
     // Response
     badgeResponse(ctx, badge)
   } catch (e) {
@@ -623,15 +629,13 @@ exports.releaseById = async function(ctx, next) {
  * DEFAULTs to latest
  */
 exports.releaseByTag = async function(ctx, next) {
-  const shieldsURI = ctx.query[SHIELDS_URI_PARAM] || DEFAULT_SHIELDS_URI,
-    ghURI = buildGhURI(ctx.params.owner, ctx.params.repo, GH_API_TAGS_RPATH , ctx.params.tag)
+  const ghURI = buildGhURI(ctx.params.owner, ctx.params.repo, GH_API_TAGS_RPATH , ctx.params.tag)
 
   logger.info(`GH API Request URL ${ghURI}`)
 
   try {
     let badgeDownloads = await getBadgeData(ghURI, ctx.downloads, {ghTag: ctx.params.tag}, ctx.path)
-    let shieldsReqURI = sub(shieldsURI, numeral(badgeDownloads).format())
-    let badge = await getBadge(shieldsReqURI)
+    let badge = await getBadge(buildShieldsURI(ctx.query[SHIELDS_URI_PARAM], ctx.params.tag, badgeDownloads))
     // Response
     badgeResponse(ctx, badge)
   } catch (e) {
@@ -645,15 +649,13 @@ exports.releaseByTag = async function(ctx, next) {
  * GET a badge of all-time total download count (all releases)
  */
 exports.total = async function(ctx, next) {
-  const ghURI = buildGhURI(ctx.params.owner, ctx.params.repo),
-    shieldsURI = ctx.query[SHIELDS_URI_PARAM] || DEFAULT_SHIELDS_URI
+  const ghURI = buildGhURI(ctx.params.owner, ctx.params.repo)
 
   logger.info(`GH API Request URL ${ghURI}`)
 
   try {
     let badgeDownloads = await getBadgeTotalData(ghURI, ctx.downloads, null, ctx.path)
-    let shieldsReqURI = sub(shieldsURI, numeral(badgeDownloads).format())
-    let badge = await getBadge(shieldsReqURI)
+    let badge = await getBadge(buildShieldsURI(ctx.query[SHIELDS_URI_PARAM], DEFAULT_BADGE_TOTAL_SUFFIX, badgeDownloads))
     // Response
     badgeResponse(ctx, badge)
   } catch (e) {

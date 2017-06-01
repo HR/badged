@@ -12,15 +12,15 @@
 
 <p align="center">
   <a href="https://github.com/HR/Crypter">
-    <img src="https://badged.co/HR/Crypter?badge=https://img.shields.io/badge/Crypter%20downloads-%s-orange.svg?style=flat-square"
+    <img src="https://badged.co/HR/Crypter/tags/v3.0.0?badge=https://img.shields.io/badge/downloads-%s%20v3.0.0-orange.svg?style=flat-square"
       alt="Downloads">
   </a>
   <a href="https://github.com/atom/atom">
-    <img src="https://badged.co/atom/atom?badge=https://img.shields.io/badge/Atom%20downloads-%s-green.svg?style=flat-square"
+    <img src="https://badged.co/atom/atom?badge=https://img.shields.io/badge/downloads-%s%20latest-green.svg?style=flat-square"
       alt="Downloads">
   </a>
   <a href="https://github.com/electron/electron">
-    <img src="https://badged.co/electron/electron?badge=https://img.shields.io/badge/Electron%20downloads-%s-blue.svg?style=flat-square"
+    <img src="https://badged.co/electron/electron/total?badge=https://img.shields.io/badge/downloads-%s%20total-blue.svg?style=flat-square"
       alt="Downloads">
   </a>
 </p>
@@ -108,12 +108,11 @@ URI is `https://img.shields.io/badge/downloads-%s-red.svg` yields the badge
 `https://img.shields.io/badge/downloads-1,293-red.svg`
 
 ### Examples
-- Downloads badge for the latest release `https://badged.co/HR/Crypter`
-- Custom downloads badge for the latest release
-- `https://badged.co/HR/Crypter?badge=https://img.shields.io/badge/downloads-%s-red.svg`
-- Downloads badge for release by id `https://badged.co/HR/Crypter/5163582`
-- Downloads badge for release by tag `https://badged.co/HR/Crypter/tags/v3.0.0`
-- Downloads badge for all releases `https://badged.co/HR/Crypter/total`
+- Downloads badge for the latest release `https://badged.co/HR/Crypter` ![Crypter](https://badged.co/HR/Crypter)
+- Custom downloads badge for the latest release `https://badged.co/HR/Crypter?badge=https://img.shields.io/badge/downloads-%s-red.svg` ![Crypter](https://badged.co/HR/Crypter?badge=https://img.shields.io/badge/downloads-%s-red.svg)
+- Downloads badge for release by id `https://badged.co/HR/Crypter/5163582` ![Crypter](https://badged.co/HR/Crypter/5163582)
+- Downloads badge for release by tag `https://badged.co/HR/Crypter/tags/v3.0.0` ![Crypter](https://badged.co/HR/Crypter/tags/v3.0.0)
+- Downloads badge for all releases `https://badged.co/HR/Crypter/total`![Crypter](https://badged.co/HR/Crypter/total)
 
 ## License
 The MIT License (MIT)
