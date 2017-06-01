@@ -12,15 +12,15 @@
 
 <p align="center">
   <a href="https://github.com/HR/Crypter">
-    <img src="https://badged.co/HR/Crypter?badge=https://img.shields.io/badge/Crypter%20downloads-%s-orange.svg"
+    <img src="https://badged.co/HR/Crypter?badge=https://img.shields.io/badge/Crypter%20downloads-%s-orange.svg?style=flat-square"
       alt="Downloads">
   </a>
   <a href="https://github.com/atom/atom">  
-    <img src="https://badged.co/atom/atom?badge=https://img.shields.io/badge/Atom%20downloads-%s-green.svg"
+    <img src="https://badged.co/atom/atom?badge=https://img.shields.io/badge/Atom%20downloads-%s-green.svg?style=flat-square"
       alt="Downloads">
   </a>
   <a href="https://github.com/electron/electron">  
-    <img src="https://badged.co/electron/electron?badge=https://img.shields.io/badge/Electron%20downloads-%s-blue.svg"
+    <img src="https://badged.co/electron/electron?badge=https://img.shields.io/badge/Electron%20downloads-%s-blue.svg?style=flat-square"
       alt="Downloads">
   </a>
 </p>
@@ -30,7 +30,7 @@
 A service that provides you with a customizable download count badges for your
 GitHub Releases. Allows you to keep track of your release downloads and let
 others know how popular your releases are. Use virtually any badge service (e.g.
-shields.io) you like! Uses GitHub API :octocat:, Mongodb 🌱, Koa ⚡ and ES17 ✨.
+shields.io) you like! Uses GitHub API, Mongodb 🌱, Koa ⚡ and ES17 ✨.
 Available for free.
 
 ## Features
@@ -43,23 +43,68 @@ Available for free.
 - Use any badge service of your choice (with any customization offered)
 
 ## Usage
-### Get downloads badge for latest release
+Using the Badged API is pretty simple, just form the badged link for the desired
+repo badge and use it as the source of an image element.
+
+HTML
+```html
+<img src="https://badged.co/HR/Crypter" alt="Downloads badge">
+```
+Markdown
+```markdown
+![Downloads badge](https://badged.co/HR/Crypter)
+```
+
+### Base url
+The base url for all downloads badges is
 ```
 https://badged.co/:username/:repo
 ```
 Where `username` and `repo` are the GitHub username and repository respectively.
-By default, it sends the shields.io download badge (i.e.
-`https://img.shields.io/badge/downloads-${DOWNLOAD_COUNT}-green.svg`). However
-you can specify a custom badge URI.
 
-*For example*, the following markdown
-`![downloads](https://badged.co/HR/Crypter)`
-yields a shiny badge for the latest release of
-[Crypter](https://github.com/HR/Crypter)
+### Get downloads badge for latest release
+```
+https://badged.co/:username/:repo
+```
+By default, the base url yields a badge for latest release
 
-[![downloads](https://badged.co/HR/Crypter)](https://github.com/HR/Crypter)
+### Get downloads badge for a release by id
+```
+https://badged.co/:username/:repo/:id
+```
+Where `id` is the GitHub Release id.
 
-More coming soon...
+### Get downloads badge for a release by tag name
+```
+https://badged.co/:username/:repo/tags/:tag
+```
+Where `tag` is the GitHub Release tag name.
+
+### Get downloads badge for all releases
+```
+https://badged.co/:username/:repo/total
+```
+The latest total download count for all releases is calculated when requested.
+
+### Specifying a custom badge
+By default, the shields.io downloads badge (i.e.
+`https://img.shields.io/badge/downloads-${DOWNLOAD_COUNT}-green.svg`) with the
+calculated download count is sent as the response.
+
+However, you can specify a custom badge URI _for any badge_ via the `badge`
+parameter. The badge URI must include the `%s` substitution character, which
+badged substitutes with the calculated download count (Pretty-printed), to yield
+the correct downloads badge. E.g. if the download count is 1293 and the badge
+URI is `https://img.shields.io/badge/downloads-%s-red.svg` yields the badge
+`https://img.shields.io/badge/downloads-1,293-red.svg`
+
+### Examples
+- Downloads badge for the latest release `https://badged.co/HR/Crypter`
+- Custom downloads badge for the latest release
+- `https://badged.co/HR/Crypter?badge=https://img.shields.io/badge/downloads-%s-red.svg`
+- Downloads badge for release by id `https://badged.co/HR/Crypter/5163582`
+- Downloads badge for release by tag `https://badged.co/HR/Crypter/tags/v3.0.0`
+- Downloads badge for all releases `https://badged.co/HR/Crypter/total`
 
 ## License
 The MIT License (MIT)

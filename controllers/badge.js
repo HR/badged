@@ -619,6 +619,7 @@ exports.status = async function(ctx, next) {
     }
     ctx.type = 'text/html'
     ctx.body = resBody
+    debug(ctx.response, 'Response\n')
   } catch (e) {
     logger.error(e)
   }
