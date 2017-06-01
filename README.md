@@ -12,15 +12,15 @@
 
 <p align="center">
   <a href="https://github.com/HR/Crypter">
-    <img src="https://badged.co/HR/Crypter/tags/v3.0.0?badge=https://img.shields.io/badge/downloads-%s%20v3.0.0-orange.svg?style=flat-square"
+    <img src="https://badged.co/HR/Crypter/tags/v3.0.0?badge=https://img.shields.io/badge/downloads-%s-orange.svg?style=flat-square"
       alt="Downloads">
   </a>
   <a href="https://github.com/atom/atom">
-    <img src="https://badged.co/atom/atom?badge=https://img.shields.io/badge/downloads-%s%20latest-green.svg?style=flat-square"
+    <img src="https://badged.co/atom/atom?badge=https://img.shields.io/badge/downloads-%s-green.svg?style=flat-square"
       alt="Downloads">
   </a>
   <a href="https://github.com/electron/electron">
-    <img src="https://badged.co/electron/electron/total?badge=https://img.shields.io/badge/downloads-%s%20total-blue.svg?style=flat-square"
+    <img src="https://badged.co/electron/electron/total?badge=https://img.shields.io/badge/downloads-%s-blue.svg?style=flat-square"
       alt="Downloads">
   </a>
 </p>
