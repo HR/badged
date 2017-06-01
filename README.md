@@ -8,7 +8,7 @@
 </h1>
 
 
-<h4 align="center">Customizable GitHub Release download count badges</h4>
+<h4 align="center">Customizable GitHub Release downloads badge service</h4>
 
 <p align="center">
   <a href="https://github.com/HR/Crypter">

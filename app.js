@@ -17,7 +17,7 @@ const controllersPath = `${__dirname}/controllers`,
   serve = require('koa-static'),
   compress = require('koa-compress'),
   klogger = require('koa-logger'),
-  views = require('koa-views'),
+  render = require('koa-ejs'),
   Router = require('koa-router'),
   _ = require('lodash'),
   MongoClient = require('mongodb').MongoClient
@@ -43,12 +43,14 @@ function normalize (path) {
   return resolve(path.toString().toLowerCase())
 }
 
-app.use(views(VIEW_PATH, {
-  map: {
-    hbs: 'handlebars'
-  },
-  extension: 'hbs'
-}))
+// Ejs setup
+render(app, {
+  root: VIEW_PATH,
+  viewExt: 'html',
+  layout: false,
+  cache: true,
+  debug: true
+})
 
 // Middleware to protect against HTTP Parameter Pollution attacks
 app.use(async (ctx, next) => {
@@ -109,6 +111,7 @@ MongoClient.connect(MONGODB_URI)
   .then((db) => {
     _db = db
     logger.info(`Connected to db!`)
+    // Start server after connected to db
     app.listen(PORT, () => {
       logger.info(`listening on port ${PORT}`)
     })

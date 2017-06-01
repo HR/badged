@@ -27,9 +27,7 @@ fs.readFile(README_PATH, 'utf8')
  */
 
 exports.index = async function (ctx, next) {
-  ctx.state = {
-    readmeHTML: readmeHTML
-  }
-
- await ctx.render('home')
+ await ctx.render('home', {
+   readmeHTML: readmeHTML
+ })
 }

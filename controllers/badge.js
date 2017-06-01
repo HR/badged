@@ -185,10 +185,13 @@ function buildPageQsURI (uri, page) {
 
 function setResponseHeaders (ctx) {
   let now = (new Date()).toUTCString()
+  // Allow badge to be accessed from anywhere
   ctx.set('Access-Control-Allow-Origin', '*')
+  // Prevent GitHub from caching this
   ctx.set('Cache-Control', 'no-cache')
   ctx.set('Pragma', 'no-cache')
   ctx.set('Expires', now)
+  // ;)
   ctx.set('Via', 'Badged App :)')
 }
 
@@ -202,12 +205,10 @@ function badgeResponse (ctx, badge) {
 
 // GET Badge error response
 async function errBadgeResponse (ctx) {
-  let shieldsReqURI = sub(DEFAULT_SHIELDS_URI, DEFAULT_PLACEHOLDER)
-  let badge = await getBadge(shieldsReqURI)
   setResponseHeaders(ctx)
   ctx.status = HTTP_PARTIAL_CONTENT_CODE
   ctx.type = DEFAULT_MIME_TYPE
-  ctx.body = badge.body
+  ctx.body = await ctx.render('badge', {count: DEFAULT_PLACEHOLDER, writeResp: false})
 }
 
 /**
@@ -667,19 +668,14 @@ exports.total = async function(ctx, next) {
  */
 exports.status = async function(ctx, next) {
   try {
-    // let res = await req(buildGhApiOpts(GH_API_STATUS_URI))
-    // let resBody = 'GH API Status<br>'
-    // for (var stat in res.body.rate) {
-    //   if (stat === 'reset') resBody += `${stat}: ${new Date(res.body.rate[stat] * 1000).toLocaleString()}<br>`
-    //   else resBody += `${stat}: ${res.body.rate[stat]}<br>`
-    // }
-    // ctx.type = 'text/html'
-    // let res = buildBadgeRes(ctx.reponse, 'status', 'text/html')
-    // ctx.reponse = res
-    respond(ctx, 'status', 'text/html')
-    // debug(res, 'Res\n')
-    debug(ctx.response, 'Response\n')
-    // ctx.body = resBody
+    let res = await req(buildGhApiOpts(GH_API_STATUS_URI))
+    let resBody = 'GH API Status<br>'
+    for (var stat in res.body.rate) {
+      if (stat === 'reset') resBody += `${stat}: ${new Date(res.body.rate[stat] * 1000).toLocaleString()}<br>`
+      else resBody += `${stat}: ${res.body.rate[stat]}<br>`
+    }
+    ctx.type = 'text/html'
+    ctx.body = resBody
   } catch (e) {
     logger.error(e)
   }
