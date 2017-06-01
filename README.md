@@ -15,11 +15,11 @@
     <img src="https://badged.co/HR/Crypter?badge=https://img.shields.io/badge/Crypter%20downloads-%s-orange.svg?style=flat-square"
       alt="Downloads">
   </a>
-  <a href="https://github.com/atom/atom">  
+  <a href="https://github.com/atom/atom">
     <img src="https://badged.co/atom/atom?badge=https://img.shields.io/badge/Atom%20downloads-%s-green.svg?style=flat-square"
       alt="Downloads">
   </a>
-  <a href="https://github.com/electron/electron">  
+  <a href="https://github.com/electron/electron">
     <img src="https://badged.co/electron/electron?badge=https://img.shields.io/badge/Electron%20downloads-%s-blue.svg?style=flat-square"
       alt="Downloads">
   </a>
@@ -41,6 +41,15 @@ Available for free.
   - Tag
 - Get all-time (total) download count of all your releases
 - Use any badge service of your choice (with any customization offered)
+- Highly scalable service (see Scalability)
+
+## Scalability
+All downloads are updated at an interval of an hour so as to stay within the
+GitHub API request limit and increase scalability. Updates are request-driven
+meaning that download counts are only updated after the interval if the badge is
+requested. Furthermore, advanced caching is used to ensure only modified data is
+updated via conditional requests which also reduces API quota usage and
+increases scalability.
 
 ## Usage
 Using the Badged API is pretty simple, just form the badged link for the desired

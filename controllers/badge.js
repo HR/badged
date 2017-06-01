@@ -43,6 +43,8 @@ const HTTP_NOT_MODIFIED_CODE = 304,
   HTTP_OK_REGEX = /^2/
 
 const SUB_REGEX = /%s/g
+// Min update interval to update cache (request-driven)
+const UPDATE_INTERVAL = 60 * 60 * 1000 // 1 hour
 
 // String template substition
 function sub (str, ...subs) {
@@ -177,10 +179,51 @@ function buildPageQsURI (uri, page) {
   return `${uri}?${querystring.stringify(qs)}`
 }
 
+/**
+ * Response setters
+ */
+
+function setResponseHeaders (ctx) {
+  let now = (new Date()).toUTCString()
+  ctx.set('Access-Control-Allow-Origin', '*')
+  ctx.set('Cache-Control', 'no-cache')
+  ctx.set('Pragma', 'no-cache')
+  ctx.set('Expires', now)
+  ctx.set('Via', 'Badged App :)')
+}
+
+// Badge response
+function badgeResponse (ctx, badge) {
+  setResponseHeaders(ctx)
+  ctx.status = HTTP_OK_CODE
+  ctx.type = badge.type
+  ctx.body = badge.body
+}
+
+// GET Badge error response
+async function errBadgeResponse (ctx) {
+  let shieldsReqURI = sub(DEFAULT_SHIELDS_URI, DEFAULT_PLACEHOLDER)
+  let badge = await getBadge(shieldsReqURI)
+  setResponseHeaders(ctx)
+  ctx.status = HTTP_PARTIAL_CONTENT_CODE
+  ctx.type = DEFAULT_MIME_TYPE
+  ctx.body = badge.body
+}
+
+/**
+ * Validators
+ */
+
 // Checks if request url is valid
 function isReqValid (reqUrlQuery) {
   // Check if only allowed params passed
   return _.isEmpty(_.omit(reqUrlQuery, ALLOWED_PARAMS))
+}
+
+// Check if an updated is required (for cache)
+function isUpdateRequired (lastUpdated) {
+  const sinceLastUpdated = (Date.now() - new Date(lastUpdated))
+  return sinceLastUpdated > UPDATE_INTERVAL
 }
 
 
@@ -206,17 +249,20 @@ function getReleaseDownloadCount (release) {
 // Gets the total download count
 function getDownloadCount (pageBody) {
   if (_.isArray(pageBody)) {
-    // Calculate download count for all releases
+    // Array of releases
+    // Calculate download count for each release
     let totalCountArr = pageBody.map((release) => getReleaseDownloadCount(release))
+    // Calculate total download count for all releases and return
     return _.sum(totalCountArr)
   } else {
+    // Single release
     // Calculate download count for a single release
     return getReleaseDownloadCount(pageBody)
   }
 }
 
 // Gets the release data with count
-function getReleaseData (url, extraOpts) {
+function fetchDownloadData (url, extraOpts) {
   return req(buildGhApiOpts(url, extraOpts))
     .then((res) => {
       res.count = getDownloadCount(res.body)
@@ -233,7 +279,7 @@ function getPage (pageNo, fetchedPage, cachedPage) {
   switch (true) {
     case fetchedPage.statusCode === HTTP_NOT_MODIFIED_CODE:
       // Has not been modified
-      logger.info(`Page ${pageNo} has NOT changed. Serving from cache...`)
+      logger.debug(`Page ${pageNo} has NOT changed. Serving from cache...`)
       // Serve from cache
       return cachedPage
 
@@ -247,7 +293,7 @@ function getPage (pageNo, fetchedPage, cachedPage) {
 
     case HTTP_OK_REGEX.test(fetchedPage.statusCode.toString()):
       // Has been modified or is new
-      logger.info(`Page ${pageNo} HAS changed. Updating cache & serving...`)
+      logger.debug(`Page ${pageNo} HAS changed. Updating cache & serving...`)
 
       // Create page
       let downloadCount = getDownloadCount(fetchedPage.body)
@@ -272,7 +318,7 @@ function getPage (pageNo, fetchedPage, cachedPage) {
  * Get the badge data of total (#downloads)
  * From the GitHub API
  */
-async function getTotalDownloadData (ghURI, cachedData) {
+async function fetchTotalDownloadData (ghURI, cachedData) {
   const firstPageURI = buildPageQsURI(ghURI)
   const firstPageNo = 1
   const firstCachedPage = _.hasIn(cachedData, `pages[${firstPageNo}]`) ? cachedData.pages[firstPageNo] : null
@@ -289,7 +335,7 @@ async function getTotalDownloadData (ghURI, cachedData) {
 
   if (_.has(firstPage, 'headers.link')) {
     // Response is paginated
-    logger.info(`Response IS paginated`)
+    logger.debug(`Response IS paginated`)
     let linkHeader = parseLink(firstPage.headers.link)
     lastPage = parseInt(linkHeader.last.page)
 
@@ -313,7 +359,7 @@ async function getTotalDownloadData (ghURI, cachedData) {
     debug(pages, 'Pages is:\n')
   } else {
     // Response is not paginated
-    logger.info(`Response is NOT paginated`)
+    logger.debug(`Response is NOT paginated`)
   }
 
   // Sum the download count for each page to calc total
@@ -327,6 +373,10 @@ async function getTotalDownloadData (ghURI, cachedData) {
 }
 
 
+/**
+ * Get the badge data of total (#downloads)
+ * From cache or via GitHub API
+ */
 async function getBadgeTotalData (ghURI, downloads, findFilter, path) {
   // finds by the request path by default
   findFilter = findFilter || {path}
@@ -334,15 +384,14 @@ async function getBadgeTotalData (ghURI, downloads, findFilter, path) {
   const cachedTotalDownloadData = await downloads.findOne(findFilter)
 
   debug(cachedTotalDownloadData, 'Cached data:', '\n')
-  debug(path, 'Normalized Request path:')
 
   // Check if in cache
   if (_.isEmpty(cachedTotalDownloadData)) {
     // Not in cache so fetch
-    logger.info(`${path} NOT IN cache. Fetching...`)
+    logger.debug(path, `NOT IN cache. Fetching...`)
 
     // Get the latest total download data
-    const totalDownloadData = await getTotalDownloadData(ghURI)
+    const totalDownloadData = await fetchTotalDownloadData(ghURI)
 
     // Update cache
     const outcome = await downloads.insertOne(totalDownloadDoc(
@@ -360,32 +409,50 @@ async function getBadgeTotalData (ghURI, downloads, findFilter, path) {
     return totalDownloadData.count
   } else {
     // In cache
-    logger.info(`${path} IN cache. Checking if changed`)
+    logger.debug(path, `IN cache`)
 
-    // Get the latest total download data
-    const totalDownloadData = await getTotalDownloadData(ghURI, cachedTotalDownloadData)
 
-    if (totalDownloadData.count !== cachedTotalDownloadData.count) {
-      // Data has changed so update cache
-      const updatedDoc = totalDownloadDoc(
-        null,
-        null,
-        totalDownloadData.pages,
-        totalDownloadData.lastPage,
-        totalDownloadData.count,
-        totalDownloadData.lastUpdated,
-        ++cachedTotalDownloadData.requests
-      )
-
+    // Check if the cache needs to be updated
+    if (isUpdateRequired(cachedTotalDownloadData.lastUpdated)) {
       // Update cache
-      const outcome = await downloads.updateOne(findFilter, {$set: updatedDoc}, DEFAULT_DB_UPDATE_OPTS)
-      logOutcome(outcome.modifiedCount, 1, 'update totalDownload', path)
+      logger.debug(path, 'Update required')
 
-      // Serve from freshly fetched data
-      return totalDownloadData.count
+      // Get the latest total download data
+      const totalDownloadData = await fetchTotalDownloadData(ghURI, cachedTotalDownloadData)
+
+      if (totalDownloadData.count !== cachedTotalDownloadData.count) {
+        // Data has changed so update cache
+        logger.debug(path, 'Data HAS changed')
+
+        const updatedDoc = totalDownloadDoc(
+          null,
+          null,
+          totalDownloadData.pages,
+          totalDownloadData.lastPage,
+          totalDownloadData.count,
+          totalDownloadData.lastUpdated,
+          ++cachedTotalDownloadData.requests
+        )
+
+        // Update cache
+        const outcome = await downloads.updateOne(findFilter, {$set: updatedDoc}, DEFAULT_DB_UPDATE_OPTS)
+        logOutcome(outcome.modifiedCount, 1, 'update totalDownload', path)
+
+        // Serve from freshly fetched data
+        return totalDownloadData.count
+      } else {
+        // Cache has not changed
+        logger.debug(path, 'Data has NOT changed')
+        // Serve from cache
+        return cachedTotalDownloadData.count
+      }
     } else {
+      // No update required
+      logger.debug(path, 'No update required')
+      // Serve from cache
       return cachedTotalDownloadData.count
     }
+
   }
 }
 
@@ -398,93 +465,102 @@ async function getBadgeData (ghURI, downloads, findFilter, path) {
   // finds by the request path by default
   findFilter = findFilter || {path}
   // Query cache for existence
-  const cachedReleaseData = await downloads.findOne(findFilter)
+  const cachedDownloadData = await downloads.findOne(findFilter)
 
-  debug(cachedReleaseData, 'Cached data:', '\n')
-  debug(path, 'Normalized Request path:')
+  debug(cachedDownloadData, 'Cached data:', '\n')
 
   // Check if in cache
-  if (_.isEmpty(cachedReleaseData)) {
+  if (_.isEmpty(cachedDownloadData)) {
     // Not in cache so fetch
-    logger.info(`${path} NOT IN cache. Fetching...`)
+    logger.debug(path, `NOT IN cache`)
 
     // Get downloads for a release
 
     // Fetch release data
-    var releaseData = await getReleaseData(ghURI)
+    var downloadData = await fetchDownloadData(ghURI)
 
     // Update cache
     var outcome = await downloads.insertOne(downloadDoc(
       path,
       ghURI,
-      releaseData.body.id,
-      releaseData.body.tag_name,
-      releaseData.headers.etag,
-      releaseData.headers['last-modified'],
-      releaseData.count,
-      releaseData.headers.date,
+      downloadData.body.id,
+      downloadData.body.tag_name,
+      downloadData.headers.etag,
+      downloadData.headers['last-modified'],
+      downloadData.count,
+      downloadData.headers.date,
       1
     ))
 
     logOutcome(outcome.insertedCount, 1, 'insert', path)
 
-    return releaseData.count
+    return downloadData.count
   } else {
     // In cache
-    logger.info(`${path} IN cache. Checking if changed`)
+    logger.debug(path, `IN cache`)
 
-    // Fetch release data
-    let releaseData = await req(buildGhApiOpts(ghURI, cachedReleaseData.ghETAG))
-    const statusCode = releaseData.statusCode
+    // Check if the cache needs to be updated
+    if (isUpdateRequired(cachedDownloadData.lastUpdated)) {
+      // Update cache
 
-    debug(releaseData.headers.status, `Got response`)
-    // Check if outdated
-    switch (true) {
-      case statusCode === HTTP_NOT_MODIFIED_CODE:
-        // Has not been modified
-        logger.info(`${path} has NOT changed. Serving from cache...`)
-        // Update cache requests
-        var outcome = await downloads.updateOne(findFilter, {$inc: {requests: 1}}, DEFAULT_DB_UPDATE_OPTS)
-        logOutcome(outcome.modifiedCount, 1, 'update requests', path)
-        // Serve from cache
-        return cachedReleaseData.count
+      // Fetch release data
+      let downloadData = await req(buildGhApiOpts(ghURI, cachedDownloadData.ghETAG))
+      const statusCode = downloadData.statusCode
 
-      case statusCode === HTTP_FORBIDDEN_CODE:
-        // GitHub API Limit reached
-        var outcome = await downloads.updateOne(findFilter, {$inc: {requests: 1}}, DEFAULT_DB_UPDATE_OPTS)
-        logOutcome(outcome.modifiedCount, 1, 'update requests', path)
-        // Serve from cache
-        return cachedReleaseData.count
+      debug(downloadData.headers.status, `Got response`)
+      // Check if outdated
+      switch (true) {
+        case statusCode === HTTP_NOT_MODIFIED_CODE:
+          // Has not been modified
+          logger.debug(path, `has NOT changed. Serving from cache...`)
+          // Update cache requests
+          var outcome = await downloads.updateOne(findFilter, {$inc: {requests: 1}}, DEFAULT_DB_UPDATE_OPTS)
+          logOutcome(outcome.modifiedCount, 1, 'update requests', path)
+          // Serve from cache
+          return cachedDownloadData.count
 
-      case HTTP_OK_REGEX.test(statusCode.toString()):
-        // Has been modified
-        logger.info(`${path} HAS changed. Updating cache & serving...`)
-        releaseData.count = getDownloadCount(releaseData.body)
+        case statusCode === HTTP_FORBIDDEN_CODE:
+          // GitHub API Limit reached
+          var outcome = await downloads.updateOne(findFilter, {$inc: {requests: 1}}, DEFAULT_DB_UPDATE_OPTS)
+          logOutcome(outcome.modifiedCount, 1, 'update requests', path)
+          // Serve from cache
+          return cachedDownloadData.count
 
-        let updatedDownload = downloadDoc(
-          null,
-          null,
-          releaseData.body.id,
-          releaseData.body.tag_name,
-          releaseData.headers.etag,
-          releaseData.headers['last-modified'],
-          releaseData.count,
-          releaseData.headers.date,
-          ++cachedReleaseData.requests
-        )
+        case HTTP_OK_REGEX.test(statusCode.toString()):
+          // Has been modified
+          logger.debug(path, `HAS changed. Updating cache & serving...`)
+          downloadData.count = getDownloadCount(downloadData.body)
 
-        // Update cache
-        var outcome = await downloads.updateOne(findFilter, {$set: updatedDownload}, DEFAULT_DB_UPDATE_OPTS)
-        logOutcome(outcome.modifiedCount, 1, 'update download', path)
-        // Serve from freshly fetched data
-        return releaseData.count
+          let updatedDownload = downloadDoc(
+            null,
+            null,
+            downloadData.body.id,
+            downloadData.body.tag_name,
+            downloadData.headers.etag,
+            downloadData.headers['last-modified'],
+            downloadData.count,
+            downloadData.headers.date,
+            ++cachedDownloadData.requests
+          )
 
-      default:
-        // Unknown error occurred
-        logger.error(new Error(`Got bad response ${releaseData.headers.status},
-          full response`, '\n', inspectObj(releaseData)))
-        // Still serve from cache
-        return cachedReleaseData.count
+          // Update cache
+          var outcome = await downloads.updateOne(findFilter, {$set: updatedDownload}, DEFAULT_DB_UPDATE_OPTS)
+          logOutcome(outcome.modifiedCount, 1, 'update download', path)
+          // Serve from freshly fetched data
+          return downloadData.count
+
+        default:
+          // Unknown error occurred
+          logger.error(new Error(`Got bad response ${downloadData.headers.status},
+            full response`, '\n', inspectObj(downloadData)))
+          // Still serve from cache
+          return cachedDownloadData.count
+      }
+    } else {
+      // No update required
+      logger.debug('No update required')
+      // Serve from cache
+      return cachedDownloadData.count
     }
   }
 }
@@ -504,22 +580,16 @@ exports.release = async function(ctx, next) {
     ghURI = buildGhURI(ctx.params.owner, ctx.params.repo, GH_API_DEFAULT_RPATH)
 
   logger.info(`GH API Request URL ${ghURI}`)
-  // make appropriate cache find request
+
   try {
     let badgeDownloads = await getBadgeData(ghURI, ctx.downloads, null, ctx.path)
     let shieldsReqURI = sub(shieldsURI, numeral(badgeDownloads).format())
     let badge = await getBadge(shieldsReqURI)
     // Response
-    ctx.statusCode = HTTP_OK_CODE
-    ctx.type = badge.type
-    ctx.body = badge.body
+    badgeResponse(ctx, badge)
   } catch (e) {
     logger.error(e)
-    let shieldsReqURI = sub(DEFAULT_SHIELDS_URI, DEFAULT_PLACEHOLDER)
-    let badge = await getBadge(shieldsReqURI)
-    ctx.statusCode = HTTP_PARTIAL_CONTENT_CODE
-    ctx.type = badge.type
-    ctx.body = badge.body
+    await errBadgeResponse(ctx)
   }
 }
 
@@ -533,21 +603,16 @@ exports.releaseById = async function(ctx, next) {
     ghURI = buildGhURI(ctx.params.owner, ctx.params.repo, ctx.params.id)
 
   logger.info(`GH API Request URL ${ghURI}`)
+
   try {
     let badgeDownloads = await getBadgeData(ghURI, ctx.downloads, {ghId: parseInt(ctx.params.id)}, ctx.path)
     let shieldsReqURI = sub(shieldsURI, numeral(badgeDownloads).format())
     let badge = await getBadge(shieldsReqURI)
     // Response
-    ctx.statusCode = HTTP_OK_CODE
-    ctx.type = badge.type
-    ctx.body = badge.body
+    badgeResponse(ctx, badge)
   } catch (e) {
     logger.error(e)
-    let shieldsReqURI = sub(DEFAULT_SHIELDS_URI, DEFAULT_PLACEHOLDER)
-    let badge = await getBadge(shieldsReqURI)
-    ctx.statusCode = HTTP_PARTIAL_CONTENT_CODE
-    ctx.type = badge.type
-    ctx.body = badge.body
+    await errBadgeResponse(ctx)
   }
 }
 
@@ -561,21 +626,16 @@ exports.releaseByTag = async function(ctx, next) {
     ghURI = buildGhURI(ctx.params.owner, ctx.params.repo, GH_API_TAGS_RPATH , ctx.params.tag)
 
   logger.info(`GH API Request URL ${ghURI}`)
+
   try {
     let badgeDownloads = await getBadgeData(ghURI, ctx.downloads, {ghTag: ctx.params.tag}, ctx.path)
     let shieldsReqURI = sub(shieldsURI, numeral(badgeDownloads).format())
     let badge = await getBadge(shieldsReqURI)
     // Response
-    ctx.statusCode = HTTP_OK_CODE
-    ctx.type = badge.type
-    ctx.body = badge.body
+    badgeResponse(ctx, badge)
   } catch (e) {
     logger.error(e)
-    let shieldsReqURI = sub(DEFAULT_SHIELDS_URI, DEFAULT_PLACEHOLDER)
-    let badge = await getBadge(shieldsReqURI)
-    ctx.statusCode = HTTP_PARTIAL_CONTENT_CODE
-    ctx.type = badge.type
-    ctx.body = badge.body
+    await errBadgeResponse(ctx)
   }
 }
 
@@ -587,21 +647,17 @@ exports.total = async function(ctx, next) {
   const ghURI = buildGhURI(ctx.params.owner, ctx.params.repo),
     shieldsURI = ctx.query[SHIELDS_URI_PARAM] || DEFAULT_SHIELDS_URI
 
+  logger.info(`GH API Request URL ${ghURI}`)
+
   try {
     let badgeDownloads = await getBadgeTotalData(ghURI, ctx.downloads, null, ctx.path)
     let shieldsReqURI = sub(shieldsURI, numeral(badgeDownloads).format())
     let badge = await getBadge(shieldsReqURI)
     // Response
-    ctx.statusCode = HTTP_OK_CODE
-    ctx.type = badge.type
-    ctx.body = badge.body
+    badgeResponse(ctx, badge)
   } catch (e) {
     logger.error(e)
-    let shieldsReqURI = sub(DEFAULT_SHIELDS_URI, DEFAULT_PLACEHOLDER)
-    let badge = await getBadge(shieldsReqURI)
-    ctx.statusCode = HTTP_PARTIAL_CONTENT_CODE
-    ctx.type = badge.type
-    ctx.body = badge.body
+    await errBadgeResponse(ctx)
   }
 }
 
@@ -611,15 +667,19 @@ exports.total = async function(ctx, next) {
  */
 exports.status = async function(ctx, next) {
   try {
-    let res = await req(buildGhApiOpts(GH_API_STATUS_URI))
-    let resBody = 'GH API Status<br>'
-    for (var stat in res.body.rate) {
-      if (stat === 'reset') resBody += `${stat}: ${new Date(res.body.rate[stat] * 1000).toLocaleString()}<br>`
-      else resBody += `${stat}: ${res.body.rate[stat]}<br>`
-    }
-    ctx.type = 'text/html'
-    ctx.body = resBody
+    // let res = await req(buildGhApiOpts(GH_API_STATUS_URI))
+    // let resBody = 'GH API Status<br>'
+    // for (var stat in res.body.rate) {
+    //   if (stat === 'reset') resBody += `${stat}: ${new Date(res.body.rate[stat] * 1000).toLocaleString()}<br>`
+    //   else resBody += `${stat}: ${res.body.rate[stat]}<br>`
+    // }
+    // ctx.type = 'text/html'
+    // let res = buildBadgeRes(ctx.reponse, 'status', 'text/html')
+    // ctx.reponse = res
+    respond(ctx, 'status', 'text/html')
+    // debug(res, 'Res\n')
     debug(ctx.response, 'Response\n')
+    // ctx.body = resBody
   } catch (e) {
     logger.error(e)
   }
