@@ -12,15 +12,18 @@ const controllersPath = `${__dirname}/controllers`,
   badge = require(`${controllersPath}/badge`),
   home = require(`${controllersPath}/home`),
   {resolve} = require('path'),
+  koa = require('koa'),
   responseTime = require('koa-response-time'),
   serve = require('koa-static'),
   compress = require('koa-compress'),
   klogger = require('koa-logger'),
-  _ = require('lodash'),
-  koa = require('koa'),
+  views = require('koa-views'),
   Router = require('koa-router'),
-  // co = require('co'),
-  MongoClient = require('mongodb').MongoClient,
+  _ = require('lodash'),
+  MongoClient = require('mongodb').MongoClient
+
+// Constants
+const VIEW_PATH = `${__dirname}/views`,
   ENV = process.env.NODE_ENV || 'development',
   PORT = process.env.PORT || '4000',
   MONGODB_URI = process.env.MONGODB_URI,
@@ -32,13 +35,20 @@ const router = new Router()
 var _db
 
 /**
- * Environment.
+ * Config
  */
 
 // Normalize
 function normalize (path) {
   return resolve(path.toString().toLowerCase())
 }
+
+app.use(views(VIEW_PATH, {
+  map: {
+    hbs: 'handlebars'
+  },
+  extension: 'hbs'
+}))
 
 // Middleware to protect against HTTP Parameter Pollution attacks
 app.use(async (ctx, next) => {

@@ -12,15 +12,15 @@
 
 <p align="center">
   <a href="https://github.com/HR/Crypter">
-    <img src="https://badged.space/HR/Crypter?badge=https://img.shields.io/badge/Crypter%20downloads-%s-orange.svg"
+    <img src="https://badged.co/HR/Crypter?badge=https://img.shields.io/badge/Crypter%20downloads-%s-orange.svg"
       alt="Downloads">
   </a>
   <a href="https://github.com/atom/atom">  
-    <img src="https://badged.space/atom/atom?badge=https://img.shields.io/badge/Atom%20downloads-%s-green.svg"
+    <img src="https://badged.co/atom/atom?badge=https://img.shields.io/badge/Atom%20downloads-%s-green.svg"
       alt="Downloads">
   </a>
   <a href="https://github.com/electron/electron">  
-    <img src="https://badged.space/electron/electron?badge=https://img.shields.io/badge/Electron%20downloads-%s-blue.svg"
+    <img src="https://badged.co/electron/electron?badge=https://img.shields.io/badge/Electron%20downloads-%s-blue.svg"
       alt="Downloads">
   </a>
 </p>
@@ -45,7 +45,7 @@ Available for free.
 ## Usage
 ### Get downloads badge for latest release
 ```
-https://badged.space/:username/:repo
+https://badged.co/:username/:repo
 ```
 Where `username` and `repo` are the GitHub username and repository respectively.
 By default, it sends the shields.io download badge (i.e.
@@ -53,11 +53,11 @@ By default, it sends the shields.io download badge (i.e.
 you can specify a custom badge URI.
 
 *For example*, the following markdown
-`![downloads](https://badged.space/HR/Crypter)`
+`![downloads](https://badged.co/HR/Crypter)`
 yields a shiny badge for the latest release of
 [Crypter](https://github.com/HR/Crypter)
 
-[![downloads](https://badged.space/HR/Crypter)](https://github.com/HR/Crypter)
+[![downloads](https://badged.co/HR/Crypter)](https://github.com/HR/Crypter)
 
 More coming soon...
 
