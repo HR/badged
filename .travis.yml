@@ -5,6 +5,8 @@ deploy:
     on: production
 
 language: node_js
+node_js:
+  - "8.11.4"
 branches:
   only:
   - production

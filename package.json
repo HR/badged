@@ -4,7 +4,7 @@
   "description": "GitHub Release downloads badges",
   "main": "index.js",
   "engines": {
-    "node": "7.10.0"
+    "node": "8.11.4"
   },
   "scripts": {
     "test": "make test",
