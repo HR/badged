@@ -2,7 +2,10 @@ deploy:
   provider: heroku
   api_key:
     secure: WoUYGvVJ/JAlvfrsLOg4yT565FfzJYGqMop6eSJYJaF/jFr/Zh+kHqdcpjGzlteXgi/W9N107dkFm/ptsxQ9i0xPYDhd7AjNJgNEvIOvHrVj4630u2jCCB3dYRlO9y2+95G6C5hkuuhsrjDsrDFaizBcIeICgUrs/ueZTAttrk6QVIciz65ejjyQVUMkkbcl1C6XWbG0bEOywRlARMTy6oqKfosMb4HCyTiU1s75O1n9lbBaTIBM+6tmig6D6aiu4CHuoAK6Qr3c6ph3wlHxQv8jI41k7roIUqd7xXfqkMzXzisqjj8ZJwifhzlDTFtdkIP0MuumBIM15I4QIRZaGOH+xjkz4DuG+ZAGpkP7qSmMRSfeQq1Y86P1055k+7KKSASu6QrpbUU1w4+C2kbRal/ztFd0ZI16LWQL3lJ8B01mZbUPT1hiS45itBJje65mepmxtcmrx2kFBfAluPP5owMKYV2rA6QfQjkv1w9dGWFnj1NnKqmRuO2c2GLVrknyLbfSTSzU42tADTtnbOi0lnUKMiJ53JkG6034Ub5NG2DbHH0LABp+VznffRF1hmSDrI37bAFpQbGaC+/WGuauOD2abbv8FHAzCMRuxo3LDTXkTBCiz0/Ie4rpDJ2PGjmTl7A1CX5Xab73OIByklO5/FTQX/2XRa+t5OqExTDSAwM=
-    on: production
+    on:
+      branches:
+        only:
+          - production
 
 language: node_js
 node_js:
