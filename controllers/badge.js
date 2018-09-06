@@ -146,12 +146,13 @@ function buildGhApiOpts (URI, ifReqVal) {
     headers: {
       // Required for GitHub API
       'User-Agent': DEFAULT_REQ_UA,
-      'Accept': 'application/vnd.github.v3.full+json',
-      'Authorization': `token ${GH_API_OAUTH_TOKEN}`
+      'Accept': 'application/vnd.github.v3.full+json'
     },
     resolveWithFullResponse: true,
     json: true
   }
+  // Only ad oauth token if set
+  GH_API_OAUTH_TOKEN && ghApiOpts['Authorization'] = `token ${GH_API_OAUTH_TOKEN}`
   if (ifReqVal) {
     // Merge opts
     return _.merge(ghApiOpts, {
