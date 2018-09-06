@@ -12,15 +12,15 @@
 
 <p align="center">
   <a href="https://github.com/HR/Crypter">
-    <img src="http://badged.gq/HR/Crypter/tags/v3.0.0?badge=https://img.shields.io/badge/downloads-%s-orange.svg?style=flat-square"
+    <img src="http://badged.ga/HR/Crypter/tags/v3.0.0?badge=https://img.shields.io/badge/downloads-%s-orange.svg?style=flat-square"
       alt="Downloads">
   </a>
   <a href="https://github.com/atom/atom">
-    <img src="http://badged.gq/atom/atom?badge=https://img.shields.io/badge/downloads-%s-green.svg?style=flat-square"
+    <img src="http://badged.ga/atom/atom?badge=https://img.shields.io/badge/downloads-%s-green.svg?style=flat-square"
       alt="Downloads">
   </a>
   <a href="https://github.com/electron/electron">
-    <img src="http://badged.gq/electron/electron/total?badge=https://img.shields.io/badge/downloads-%s-blue.svg?style=flat-square"
+    <img src="http://badged.ga/electron/electron/total?badge=https://img.shields.io/badge/downloads-%s-blue.svg?style=flat-square"
       alt="Downloads">
   </a>
 </p>
@@ -57,41 +57,41 @@ repo badge and use it as the source of an image element.
 
 HTML
 ```html
-<img src="http://badged.gq/HR/Crypter" alt="Downloads badge">
+<img src="http://badged.ga/HR/Crypter" alt="Downloads badge">
 ```
 Markdown
 ```markdown
-![Downloads badge](http://badged.gq/HR/Crypter)
+![Downloads badge](http://badged.ga/HR/Crypter)
 ```
 
 ### Base url
 The base url for all downloads badges is
 ```
-http://badged.gq/:username/:repo
+http://badged.ga/:username/:repo
 ```
 Where `username` and `repo` are the GitHub username and repository respectively.
 
 ### Get downloads badge for latest release
 ```
-http://badged.gq/:username/:repo
+http://badged.ga/:username/:repo
 ```
 By default, the base url yields a badge for latest release
 
 ### Get downloads badge for a release by id
 ```
-http://badged.gq/:username/:repo/:id
+http://badged.ga/:username/:repo/:id
 ```
 Where `id` is the GitHub Release id.
 
 ### Get downloads badge for a release by tag name
 ```
-http://badged.gq/:username/:repo/tags/:tag
+http://badged.ga/:username/:repo/tags/:tag
 ```
 Where `tag` is the GitHub Release tag name.
 
 ### Get downloads badge for all releases
 ```
-http://badged.gq/:username/:repo/total
+http://badged.ga/:username/:repo/total
 ```
 The latest total download count for all releases is calculated when requested.
 
@@ -108,11 +108,11 @@ URI is `https://img.shields.io/badge/downloads-%s-red.svg` yields the badge
 `https://img.shields.io/badge/downloads-1,293-red.svg`
 
 ### Examples
-- Downloads badge for the latest release `http://badged.gq/HR/Crypter` ![Crypter](http://badged.gq/HR/Crypter)
-- Custom downloads badge for the latest release `http://badged.gq/HR/Crypter?badge=https://img.shields.io/badge/downloads-%s-red.svg` ![Crypter](http://badged.gq/HR/Crypter?badge=https://img.shields.io/badge/downloads-%s-red.svg)
-- Downloads badge for release by id `http://badged.gq/HR/Crypter/5163582` ![Crypter](http://badged.gq/HR/Crypter/5163582)
-- Downloads badge for release by tag `http://badged.gq/HR/Crypter/tags/v3.0.0` ![Crypter](http://badged.gq/HR/Crypter/tags/v3.0.0)
-- Downloads badge for all releases `http://badged.gq/HR/Crypter/total`![Crypter](http://badged.gq/HR/Crypter/total)
+- Downloads badge for the latest release `http://badged.ga/HR/Crypter` ![Crypter](http://badged.ga/HR/Crypter)
+- Custom downloads badge for the latest release `http://badged.ga/HR/Crypter?badge=https://img.shields.io/badge/downloads-%s-red.svg` ![Crypter](http://badged.ga/HR/Crypter?badge=https://img.shields.io/badge/downloads-%s-red.svg)
+- Downloads badge for release by id `http://badged.ga/HR/Crypter/5163582` ![Crypter](http://badged.ga/HR/Crypter/5163582)
+- Downloads badge for release by tag `http://badged.ga/HR/Crypter/tags/v3.0.0` ![Crypter](http://badged.ga/HR/Crypter/tags/v3.0.0)
+- Downloads badge for all releases `http://badged.ga/HR/Crypter/total`![Crypter](http://badged.ga/HR/Crypter/total)
 
 ## License
 The MIT License (MIT)
