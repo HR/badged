@@ -152,7 +152,7 @@ function buildGhApiOpts (URI, ifReqVal) {
     json: true
   }
   // Only ad oauth token if set
-  GH_API_OAUTH_TOKEN && ghApiOpts['Authorization'] = `token ${GH_API_OAUTH_TOKEN}`
+  if (GH_API_OAUTH_TOKEN) ghApiOpts['Authorization'] = `token ${GH_API_OAUTH_TOKEN}`
   if (ifReqVal) {
     // Merge opts
     return _.merge(ghApiOpts, {
