@@ -1,8 +1,7 @@
 deploy:
   provider: heroku
-  api_key:
-    secure: h815gGvMWeEtIH0E85VjLMX3ZE8dmBkm4A+yW1i+JOTQFWXPfFlQfBF/p76g4jqg/ui5KSorrzDjyfP3dR8OxKQQwcu5+jxKleMuQG3SWne+soFSRYsI/mzx3K1YtZSD6XM3w6wHpdmou83zgHXZxlW2N3dTKkgYZOzsLwz8/D84hqaNuTbqEiewdQoepgTDmmcAVu061JcpyvualUMZmBsEgeouIK6yD4OYlPboO9BbGN+L9xgO0ey6sRYpdl7Jfkekp2PXk/QALivftFDxJtvvGNm02ycsYZwEHm1+RCYDJ4Az0wlrgKEgNRmf4/A52hg66fThVaaWvxwbeFsCImQzanWzozwW+rFqZshGI2eMnBw3velLnEkUR692tb1V7RtOKVMvhXGHQcKaUmgjMcu+2QL0iMsoK46r5euyHEU4fYfsVF4J/d1mURbTbSr33u0XJbzk0qQxfsVY+Bf2BmpbPAsdxzZlx7wSm9/BFoxLbTtu/Hi0ueBHQL8NTd0HXlHX5V6Tt0ujXmXb8oda7TvKhoYAzhlXslFHyc5+yXYjhhUxt0ttom9NSuuYh15F50+4y3syCO7bsvUSaoUgAWj+hajx+0Xo6z3a7mhPmnBFCP6GRgSaQXzuQ1pA4kuNoplMxlm6kOuEg7abZeSBP6qKyiWYJzVgvCjfRzsfoDs=
-  app: badged-app
+  api_key: $HEROKU_API_KEY
+  app: get-badge
 
 language: node_js
 node_js:
